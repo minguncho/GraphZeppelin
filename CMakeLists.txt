@@ -151,6 +151,11 @@ if (BUILD_EXE)
   add_executable(to_binary_format
     tools/to_binary_format.cpp)
   target_link_libraries(to_binary_format PRIVATE GraphZeppelinCommon)
+
+  add_executable(stream_ingest
+    tools/experiment/BCHMK_Graph.cpp
+  )
+  target_link_libraries(stream_ingest PRIVATE GraphZeppelin)
 endif()
 
 if (BUILD_BENCH)

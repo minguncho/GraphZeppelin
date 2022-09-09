@@ -8,6 +8,7 @@
   node_id_t num_nodes   = stream.nodes();
   size_t    num_updates = stream.edges();
   auto config = GraphConfiguration().gutter_sys(CACHETREE).num_groups(46);
+  config.gutter_conf().gutter_factor(-4);
   Graph g{num_nodes, config};
 
   auto start = std::chrono::steady_clock::now();

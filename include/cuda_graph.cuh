@@ -4,6 +4,7 @@
 #include <util.h>
 #include <atomic>
 #include <cuda_kernel.cuh>
+#include <chrono>
 
 class CudaGraph {
     public: 
@@ -26,6 +27,7 @@ class CudaGraph {
         int num_host_threads;
 
         bool isInit = false;
+        bool canInsert = false;
 
         // Default constructor
         CudaGraph() {}
@@ -54,8 +56,14 @@ class CudaGraph {
             if (!isInit) {
                 std::cout << "CudaGraph has not been initialized!\n";
             }
+            // Don't perform any updates
+            return;
             // Add first to prevent data conflicts
             vec_t prev_offset = std::atomic_fetch_add(&offset, edges.size());
+
+            if (offset > cudaUpdateParams[0].num_updates * 2) {
+                std::cout << "Offset " << offset << " going out of bounds!\n";
+            }
             int count = 0;
             for (vec_t i = prev_offset; i < prev_offset + edges.size(); i++) {
                 if (src < edges[count]) {
@@ -70,4 +78,8 @@ class CudaGraph {
             cudaStreamAttachMemAsync(streams[id], &cudaUpdateParams[0].edgeUpdates[prev_offset]);
             cudaKernel.gtsStreamUpdate(num_device_threads, num_device_blocks, src, streams[id], prev_offset, edges.size(), cudaUpdateParams, cudaSketches, sketchSeeds);
         };
+
+        void reset_insertion() {
+            offset = 0;
+        }
 };

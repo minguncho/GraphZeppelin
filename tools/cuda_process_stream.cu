@@ -149,10 +149,11 @@ int main(int argc, char **argv) {
     stream.stream_reset();
     threads.clear();
     cudaGraph.reset_insertion();
+    //GraphWorker::unpause_workers();
     
-    if (i == num_insertion - 1) {
+    /*if (i == num_insertion - 1) {
       cudaGraph.canInsert = true;
-    }
+    }*/
 
     for (int t = 0; t < reader_threads; t++) {
       threads.emplace_back(task, t);
@@ -163,22 +164,13 @@ int main(int argc, char **argv) {
     }  
     insert_durations.push_back(std::chrono::steady_clock::now() - ins_round_start);
     std::cout << "Insertion #" << i << " Completed\n";
-
+    
     /*auto flush_start = std::chrono::steady_clock::now();
     gts->force_flush();
     GraphWorker::pause_workers();
-    cudaDeviceSynchronize();
-
     flush_durations.push_back(std::chrono::steady_clock::now() - flush_start);
     std::cout << "Force Flush #" << i << " Completed\n";*/
   }
-
-  /*auto flush_start = std::chrono::steady_clock::now();
-  gts->force_flush();
-  GraphWorker::pause_workers();
-  cudaDeviceSynchronize();
-  auto flush_end = std::chrono::steady_clock::now();
-  std::cout << "Force Flush Completed\n"; */
 
   std::cout << "Update Kernel finished.\n";
 
@@ -205,7 +197,6 @@ int main(int argc, char **argv) {
     std::cout << "  Insertion #" << i << ":                 " << insert_durations[i].count() << std::endl;
     //std::cout << "  Force Flush #" << i << ":               " << flush_durations[i].count() << std::endl;
   }
-  //std::cout << "  Final Insertion:              " << insert_durations.back().count() << std::endl;
 
   std::cout << "Updates per second:           " << stream.edges() / num_seconds << std::endl;
   std::cout << "Total CC query latency:       " << cc_time.count() << std::endl;

@@ -56,8 +56,6 @@ class CudaGraph {
             if (!isInit) {
                 std::cout << "CudaGraph has not been initialized!\n";
             }
-            // Don't perform any updates
-            return;
             // Add first to prevent data conflicts
             vec_t prev_offset = std::atomic_fetch_add(&offset, edges.size());
 

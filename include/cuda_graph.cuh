@@ -36,13 +36,13 @@ class CudaGraph {
             cudaUpdateParams = _cudaUpdateParams;
             cudaSketches = _cudaSketches;
             sketchSeeds = _sketchSeeds;
+            num_host_threads = _num_host_threads;
             offset = 0;
 
             mutexes = std::vector<std::mutex>(cudaUpdateParams[0].num_nodes);
 
             num_device_threads = 1024;
             num_device_blocks = 1;
-            num_host_threads = _num_host_threads;
 
             for (int i = 0; i < num_host_threads; i++) {
                 cudaStream_t stream;
@@ -56,11 +56,14 @@ class CudaGraph {
             if (!isInit) {
                 std::cout << "CudaGraph has not been initialized!\n";
             }
-            // Add first to prevent data conflicts
-            vec_t prev_offset = std::atomic_fetch_add(&offset, edges.size());
 
-            if (offset > cudaUpdateParams[0].num_updates * 2) {
-                std::cout << "Offset " << offset << " going out of bounds!\n";
+            // Add first to prevent data conflicts
+            vec_t prev_offset = 0;
+            if (std::atomic_load(&offset) + edges.size() > cudaUpdateParams[0].num_updates * 2) { // Going out of bounds, need to wrap around
+                std::atomic_store(&offset, edges.size());
+            }
+            else {
+                prev_offset = std::atomic_fetch_add(&offset, edges.size());
             }
             int count = 0;
             for (vec_t i = prev_offset; i < prev_offset + edges.size(); i++) {
@@ -76,8 +79,4 @@ class CudaGraph {
             cudaStreamAttachMemAsync(streams[id], &cudaUpdateParams[0].edgeUpdates[prev_offset]);
             cudaKernel.gtsStreamUpdate(num_device_threads, num_device_blocks, src, streams[id], prev_offset, edges.size(), cudaUpdateParams, cudaSketches, sketchSeeds);
         };
-
-        void reset_insertion() {
-            offset = 0;
-        }
 };

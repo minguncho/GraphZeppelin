@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
 
   Supernode** supernodes;
   supernodes = g.getSupernodes();
+  GutteringSystem *gts = g.getGTS();
 
   // Get variable from sample supernode
   int num_sketches = supernodes[0]->get_num_sktch();
@@ -54,11 +55,13 @@ int main(int argc, char **argv) {
   // Start timer for initializing
   auto init_start = std::chrono::steady_clock::now();
   
+  size_t max_batch_size = gts->gutter_size() / sizeof(node_id_t);
+  
   CudaUpdateParams* cudaUpdateParams;
   gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
   cudaUpdateParams[0] = CudaUpdateParams(num_nodes, num_updates, num_sketches, num_elems, num_columns, num_guesses);
 
-  for (size_t i = 0; i < num_updates * 2; i++) {
+  for (size_t i = 0; i < 2 * num_updates; i++) {
     cudaUpdateParams[0].edgeUpdates[i] = 0;
   }
 
@@ -113,8 +116,6 @@ int main(int argc, char **argv) {
   gpuErrchk(cudaMemPrefetchAsync(d_bucket_c, num_nodes * num_sketches * num_elems * sizeof(vec_hash_t), device_id));
 
   cudaGraph.configure(cudaUpdateParams, cudaSketches, sketchSeeds, num_threads);
-  
-  GutteringSystem *gts = g.getGTS();
 
   std::cout << "Finished initializing CUDA parameters\n";
   std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
@@ -126,7 +127,7 @@ int main(int argc, char **argv) {
   std::cout << "Update Kernel Starting...\n";
 
   int num_insertion = 10;
-  std::vector<std::chrono::duration<double>> insert_durations, flush_durations;
+  std::vector<std::chrono::duration<double>> insert_durations;
   std::vector<std::thread> threads;
   threads.reserve(reader_threads);
 
@@ -148,13 +149,7 @@ int main(int argc, char **argv) {
     auto ins_round_start = std::chrono::steady_clock::now();
     stream.stream_reset();
     threads.clear();
-    cudaGraph.reset_insertion();
-    //GraphWorker::unpause_workers();
     
-    /*if (i == num_insertion - 1) {
-      cudaGraph.canInsert = true;
-    }*/
-
     for (int t = 0; t < reader_threads; t++) {
       threads.emplace_back(task, t);
     } 
@@ -164,15 +159,15 @@ int main(int argc, char **argv) {
     }  
     insert_durations.push_back(std::chrono::steady_clock::now() - ins_round_start);
     std::cout << "Insertion #" << i << " Completed\n";
-    
-    /*auto flush_start = std::chrono::steady_clock::now();
-    gts->force_flush();
-    GraphWorker::pause_workers();
-    flush_durations.push_back(std::chrono::steady_clock::now() - flush_start);
-    std::cout << "Force Flush #" << i << " Completed\n";*/
   }
 
   std::cout << "Update Kernel finished.\n";
+
+  auto flush_start = std::chrono::steady_clock::now();
+  gts->force_flush();
+  GraphWorker::pause_workers();
+  cudaDeviceSynchronize();
+  auto flush_end = std::chrono::steady_clock::now();
 
   // End timer for kernel
   auto ins_end = std::chrono::steady_clock::now();
@@ -182,12 +177,12 @@ int main(int argc, char **argv) {
 
   // Start timer for cc
   auto cc_start = std::chrono::steady_clock::now();
-  //auto CC_num = g.connected_components().size();
-  auto CC_num = 0;
+  auto CC_num = g.connected_components().size();
+  //auto CC_num = 0;
 
   std::chrono::duration<double> insert_time = ins_end - ins_start;
   std::chrono::duration<double> cc_time = std::chrono::steady_clock::now() - cc_start;
-  //std::chrono::duration<double> flush_time = flush_end - flush_start;
+  std::chrono::duration<double> flush_time = flush_end - flush_start;
   std::chrono::duration<double> cc_alg_time = g.cc_alg_end - g.cc_alg_start;
 
   double num_seconds = insert_time.count();
@@ -195,12 +190,11 @@ int main(int argc, char **argv) {
 
   for (int i = 0; i < num_insertion; i++) {
     std::cout << "  Insertion #" << i << ":                 " << insert_durations[i].count() << std::endl;
-    //std::cout << "  Force Flush #" << i << ":               " << flush_durations[i].count() << std::endl;
   }
 
-  std::cout << "Updates per second:           " << stream.edges() / num_seconds << std::endl;
+  std::cout << "Updates per second:           " << (stream.edges() * num_insertion) / num_seconds << std::endl;
   std::cout << "Total CC query latency:       " << cc_time.count() << std::endl;
-  //std::cout << "  Flush Gutters(sec):           " << flush_time.count() << std::endl;
+  std::cout << "  Flush Gutters(sec):           " << flush_time.count() << std::endl;
   std::cout << "  Boruvka's Algorithm(sec):     " << cc_alg_time.count() << std::endl;
   std::cout << "Connected Components:         " << CC_num << std::endl;
 

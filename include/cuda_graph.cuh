@@ -12,8 +12,9 @@ class CudaGraph {
         long* sketchSeeds;
 
         std::vector<std::mutex> mutexes;
-        std::atomic<vec_t> offset;
+        //std::atomic<vec_t> offset;
         std::vector<cudaStream_t> streams;
+        std::vector<int> offset;
 
         CudaKernel cudaKernel;
 
@@ -24,6 +25,7 @@ class CudaGraph {
         int num_device_blocks;
 
         int num_host_threads;
+        int batch_size;
 
         bool isInit = false;
 
@@ -34,19 +36,19 @@ class CudaGraph {
             cudaUpdateParams = _cudaUpdateParams;
             cudaSketches = _cudaSketches;
             sketchSeeds = _sketchSeeds;
-            offset = 0;
 
             mutexes = std::vector<std::mutex>(cudaUpdateParams[0].num_nodes);
 
             num_device_threads = 1024;
             num_device_blocks = 1;
             num_host_threads = _num_host_threads;
-
             for (int i = 0; i < num_host_threads; i++) {
                 cudaStream_t stream;
                 cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
                 streams.push_back(stream);
+                cudaStreamAttachMemAsync(streams[i], &cudaUpdateParams[0].edgeUpdates[i * cudaUpdateParams[0].batch_size]);
             }
+
             isInit = true;
         };
 
@@ -55,19 +57,16 @@ class CudaGraph {
                 std::cout << "CudaGraph has not been initialized!\n";
             }
             // Add first to prevent data conflicts
-            vec_t prev_offset = std::atomic_fetch_add(&offset, edges.size());
+            //vec_t prev_offset = std::atomic_fetch_add(&offset, edges.size());
+            while(cudaUpdateParams[0].edgeWriteEnabled[id] == 0) {}
+            cudaUpdateParams[0].edgeWriteEnabled[id] = 0;
             int count = 0;
-            for (vec_t i = prev_offset; i < prev_offset + edges.size(); i++) {
-                if (src < edges[count]) {
-                    cudaUpdateParams[0].edgeUpdates[i] = static_cast<vec_t>(concat_pairing_fn(src, edges[count]));
-                }
-                else {
-                    cudaUpdateParams[0].edgeUpdates[i] = static_cast<vec_t>(concat_pairing_fn(edges[count], src));
-                }
+            vec_t offset = id * cudaUpdateParams[0].batch_size;
+            for (vec_t i = offset; i < offset + edges.size(); i++) {
+                cudaUpdateParams[0].edgeUpdates[i] = static_cast<vec_t>(concat_pairing_fn(src, edges[count]));
                 count++;
             }
 
-            cudaStreamAttachMemAsync(streams[id], &cudaUpdateParams[0].edgeUpdates[prev_offset]);
-            cudaKernel.gtsStreamUpdate(num_device_threads, num_device_blocks, src, streams[id], prev_offset, edges.size(), cudaUpdateParams, cudaSketches, sketchSeeds);
+            cudaKernel.gtsStreamUpdate(num_device_threads, num_device_blocks, id, src, streams[id], offset, edges.size(), cudaUpdateParams, cudaSketches, sketchSeeds);;
         };
 };

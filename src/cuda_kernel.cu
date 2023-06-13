@@ -50,13 +50,24 @@ __device__ void bucket_update(vec_t_cu& a, vec_hash_t& c, const vec_t_cu& update
   atomicXor(&c, update_hash);
 }
 
+__device__ edge_id_t device_concat_pairing_fn(node_id_t i, node_id_t j) {
+  // swap i,j if necessary
+  if (i > j) {
+    node_id_t temp = i;
+    i = j;
+    j = temp;
+  }
+  return ((edge_id_t)i << (sizeof(node_id_t) * 8)) | j;
+}
+
+
 /*
 *   
 *   Sketch's Update Functions
 *
 */
 
-__global__ void gtsStream_kernel(node_id_t src, vec_t* edgeUpdates, vec_t prev_offset, size_t update_size, node_id_t num_nodes,
+__global__ void gtsStream_kernel(int stream_id, volatile int *edgeWriteEnabled, node_id_t src, vec_t* edgeUpdates, vec_t prev_offset, size_t update_size, node_id_t num_nodes,
     int num_sketches, size_t num_elems, size_t num_columns, size_t num_guesses, CudaSketch* cudaSketches, long* sketchSeeds) {
       
   extern __shared__ vec_t_cu sketches[];
@@ -114,6 +125,11 @@ __global__ void gtsStream_kernel(node_id_t src, vec_t* edgeUpdates, vec_t prev_o
       atomicXor(&curr_bucket_c[elem_id], bucket_c[i]);
   }
 
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    edgeWriteEnabled[stream_id] = 1;
+  }
+  
 }
 
 // Version 6: Kernel code of handling all the stream updates
@@ -187,9 +203,10 @@ __global__ void doubleStream_update(vec_t* edgeUpdates, int* nodeNumUpdates, vec
 }
 
 // Function that calls sketch update kernel code.
-void CudaKernel::gtsStreamUpdate(int num_threads, int num_blocks, node_id_t src, cudaStream_t stream, vec_t prev_offset, size_t update_size, CudaUpdateParams* cudaUpdateParams, CudaSketch* cudaSketches, long* sketchSeeds) {
+void CudaKernel::gtsStreamUpdate(int num_threads, int num_blocks, int stream_id, node_id_t src, cudaStream_t stream, vec_t prev_offset, size_t update_size, CudaUpdateParams* cudaUpdateParams, CudaSketch* cudaSketches, long* sketchSeeds) {
   // Unwarp variables from cudaUpdateParams
   vec_t *edgeUpdates = cudaUpdateParams[0].edgeUpdates;
+  volatile int *edgeWriteEnabled = cudaUpdateParams[0].edgeWriteEnabled;
 
   node_id_t num_nodes = cudaUpdateParams[0].num_nodes;
   
@@ -201,10 +218,8 @@ void CudaKernel::gtsStreamUpdate(int num_threads, int num_blocks, node_id_t src,
 
   int maxbytes = num_elems * num_sketches * sizeof(vec_t_cu) + num_elems * num_sketches * sizeof(vec_hash_t);
 
-  cudaFuncSetAttribute(doubleStream_update, cudaFuncAttributeMaxDynamicSharedMemorySize, maxbytes);
-  gtsStream_kernel<<<num_blocks, num_threads, maxbytes, stream>>>(src, edgeUpdates, prev_offset, update_size, num_nodes, num_sketches, num_elems, num_columns, num_guesses, cudaSketches, sketchSeeds);
-
-
+  cudaFuncSetAttribute(gtsStream_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxbytes);
+  gtsStream_kernel<<<num_blocks, num_threads, maxbytes, stream>>>(stream_id, edgeWriteEnabled, src, edgeUpdates, prev_offset, update_size, num_nodes, num_sketches, num_elems, num_columns, num_guesses, cudaSketches, sketchSeeds);
 }
 
 // Function that calls stream update kernel code.

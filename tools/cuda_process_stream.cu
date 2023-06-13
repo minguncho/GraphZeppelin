@@ -53,12 +53,15 @@ int main(int argc, char **argv) {
 
   // Start timer for initializing
   auto init_start = std::chrono::steady_clock::now();
+
+  GutteringSystem *gts = g.getGTS();
+  int batch_size = gts->gutter_size() / sizeof(node_id_t);
   
   CudaUpdateParams* cudaUpdateParams;
   gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
-  cudaUpdateParams[0] = CudaUpdateParams(num_nodes, num_updates, num_sketches, num_elems, num_columns, num_guesses);
+  cudaUpdateParams[0] = CudaUpdateParams(num_nodes, num_updates, num_sketches, num_elems, num_columns, num_guesses, num_threads, batch_size);
 
-  for (size_t i = 0; i < num_updates * 2; i++) {
+  for (size_t i = 0; i < num_threads + num_threads * batch_size; i++) {
     cudaUpdateParams[0].edgeUpdates[i] = 0;
   }
 
@@ -110,17 +113,16 @@ int main(int argc, char **argv) {
   std::cout << "CUDA Device Count: " << device_count << "\n";
   std::cout << "CUDA Device ID: " << device_id << "\n";
 
-  std::cout << "Allocated Shared Memory of: " << (num_elems * num_sketches * sizeof(vec_t_cu)) + (num_elems * num_sketches * sizeof(vec_hash_t)) << "\n";
-
   // Prefetch memory to device 
   gpuErrchk(cudaMemPrefetchAsync(cudaSketches, num_nodes * num_sketches * sizeof(CudaSketch), device_id));
   gpuErrchk(cudaMemPrefetchAsync(sketchSeeds, num_nodes * num_sketches * sizeof(long), device_id));
   gpuErrchk(cudaMemPrefetchAsync(d_bucket_a, num_nodes * num_sketches * num_elems * sizeof(vec_t), device_id));
   gpuErrchk(cudaMemPrefetchAsync(d_bucket_c, num_nodes * num_sketches * num_elems * sizeof(vec_hash_t), device_id));
 
+  std::cout << "Allocated Shared Memory of: " << (num_elems * num_sketches * sizeof(vec_t_cu)) + (num_elems * num_sketches * sizeof(vec_hash_t)) << "\n";
+
   cudaGraph.configure(cudaUpdateParams, cudaSketches, sketchSeeds, num_threads);
   
-  GutteringSystem *gts = g.getGTS();
   MT_StreamReader reader(stream);
   GraphUpdate upd;
 

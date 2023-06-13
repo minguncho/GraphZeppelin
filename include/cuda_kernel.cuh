@@ -40,7 +40,10 @@ class CudaSketch {
 class CudaUpdateParams {
   public:
     // List of edge ids that thread will be responsble for updating
+    //node_id_t *edgeUpdates;
     vec_t *edgeUpdates;
+
+    volatile int *edgeWriteEnabled;
 
     // Parameter for entire graph
     node_id_t num_nodes;
@@ -54,14 +57,23 @@ class CudaUpdateParams {
     size_t num_columns;
     size_t num_guesses;
 
+    int num_host_threads;
+    int batch_size;
+
     // Default Constructor of CudaUpdateParams
     CudaUpdateParams():edgeUpdates(nullptr) {};
     
-    CudaUpdateParams(node_id_t num_nodes, size_t num_updates, int num_sketches, size_t num_elems, size_t num_columns, size_t num_guesses):
-      num_nodes(num_nodes), num_updates(num_updates), num_sketches(num_sketches), num_elems(num_elems), num_columns(num_columns), num_guesses(num_guesses) {
+    CudaUpdateParams(node_id_t num_nodes, size_t num_updates, int num_sketches, size_t num_elems, size_t num_columns, size_t num_guesses, int num_host_threads, int batch_size):
+      num_nodes(num_nodes), num_updates(num_updates), num_sketches(num_sketches), num_elems(num_elems), num_columns(num_columns), num_guesses(num_guesses), num_host_threads(num_host_threads), batch_size(batch_size) {
       
       // Allocate memory space for GPU
-      gpuErrchk(cudaMallocManaged(&edgeUpdates, 2 * num_updates * sizeof(vec_t)));
+      gpuErrchk(cudaMallocManaged(&edgeUpdates, num_host_threads + num_host_threads * batch_size * sizeof(vec_t)));
+      gpuErrchk(cudaMallocManaged(&edgeWriteEnabled, num_host_threads * sizeof(int)));
+
+      for (int i = 0; i < num_host_threads; i++) {
+        edgeWriteEnabled[i] = 1;
+      }
+      //gpuErrchk(cudaMallocManaged(&edgeUpdates, 2 * num_updates * sizeof(node_id_t)));
     };
 };
 
@@ -167,7 +179,7 @@ class CudaKernel {
     *
     */
 
-    void gtsStreamUpdate(int num_threads, int num_blocks, node_id_t src, cudaStream_t stream, vec_t prev_offset, size_t update_size, CudaUpdateParams* cudaUpdateParams, CudaSketch* cudaSketches, long* sketchSeeds);
+    void gtsStreamUpdate(int num_threads, int num_blocks, int id, node_id_t src, cudaStream_t stream, vec_t prev_offset, size_t update_size, CudaUpdateParams* cudaUpdateParams, CudaSketch* cudaSketches, long* sketchSeeds);
     void streamUpdate(int num_threads, int num_blocks, CudaUpdateParams* cudaUpdateParams, CudaSketch* cudaSketches, long* sketchSeeds);
 
     /*

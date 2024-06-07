@@ -128,10 +128,10 @@ public:
         gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
         cudaUpdateParams = new CudaUpdateParams(num_nodes, num_updates, num_samples, num_buckets, num_columns, bkt_per_col, num_threads, num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
 
-        subgraphs[graph_id] = new MCSubgraph(graph_id, num_host_threads * stream_multiplier, cudaUpdateParams, ADJLIST, num_nodes, sketch_bytes, adjlist_edge_bytes);
+        subgraphs[graph_id] = new MCSubgraph(graph_id, _num_reader_threads, cudaUpdateParams, ADJLIST, num_nodes, sketch_bytes, adjlist_edge_bytes);
       }
       else { // subgraphs that are always going to be in adj. list
-        subgraphs[graph_id] = new MCSubgraph(graph_id, num_host_threads * stream_multiplier, NULL, FIXED_ADJLIST, num_nodes, sketch_bytes, adjlist_edge_bytes);
+        subgraphs[graph_id] = new MCSubgraph(graph_id, _num_reader_threads, NULL, FIXED_ADJLIST, num_nodes, sketch_bytes, adjlist_edge_bytes);
       }
     }
 

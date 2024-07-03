@@ -37,8 +37,7 @@ private:
   // Maximum number of subgraphs
   size_t num_subgraphs;
 
-  // Current number of initialized subgraphs. Starts at 1.
-  // last subgraph is always an adjacency list
+  // Current number of initialized sketch subgraphs. Starts at 0.
   std::atomic<node_id_t> cur_subgraphs;
   
   // Number of subgraphs in sketch representation
@@ -179,7 +178,7 @@ public:
 
   void print_subgraph_edges() {
     std::cout << "Number of inserted updates for each subgraph:\n";
-    for (int graph_id = 0; graph_id < cur_subgraphs.load() - 1; graph_id++) {
+    for (int graph_id = 0; graph_id < cur_subgraphs.load(); graph_id++) {
       std::cout << "  Sub-Graph " << graph_id << "(Sketch): " << subgraphs[graph_id].num_updates
                 << std::endl;
     }

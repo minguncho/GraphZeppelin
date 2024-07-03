@@ -3,7 +3,6 @@
 #include <map>
 #include "mc_sketch_alg.h"
 #include "cuda_kernel.cuh"
-#include "mc_subgraph.h"
 #include "edge_store.h"
 
 struct CudaStream {
@@ -180,8 +179,9 @@ public:
 
   void print_subgraph_edges() {
     std::cout << "Number of inserted updates for each subgraph:\n";
-    for (int graph_id = 0; graph_id < num_subgraphs; graph_id++) {
-      std::cout << "  S" << graph_id << ": " << subgraphs[graph_id].num_updates << std::endl;
+    for (int graph_id = 0; graph_id < cur_subgraphs.load() - 1; graph_id++) {
+      std::cout << "  Sub-Graph " << graph_id << "(Sketch): " << subgraphs[graph_id].num_updates
+                << std::endl;
     }
     std::cout << "  Adjacency list: " << edge_store.get_num_edges() << std::endl;
   }

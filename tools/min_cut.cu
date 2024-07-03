@@ -119,9 +119,7 @@ int main(int argc, char **argv) {
 
   // Calculate number of minimum adj. list subgraph
   size_t num_edges_complete = (size_t(num_nodes) * (size_t(num_nodes) - 1)) / 2;
-  int num_adj_graphs = 0;
   int num_sketch_graphs = 0;
-  int min_adj_graphs = 0;
   int max_sketch_graphs = 0;
 
   for (int i = 0; i < num_graphs; i++) {
@@ -129,26 +127,18 @@ int main(int argc, char **argv) {
     size_t num_est_edges = num_edges_complete / (1 << i);
     double adjlist_bytes = adjlist_edge_bytes * num_est_edges;
 
-    if (adjlist_bytes < sketch_bytes) {
-      min_adj_graphs++;
-    }
-    else {
+    if (adjlist_bytes >= sketch_bytes) {
       max_sketch_graphs++;
     }
   }
-
-  // # of adj. list graphs in the beginning
-  num_adj_graphs = num_graphs;
 
   // Total number of estimated edges of minimum number of adj. list graphs
   size_t num_est_edges_adj_graphs = (2 * num_edges_complete) / (1 << (max_sketch_graphs));
   double total_adjlist_bytes = adjlist_edge_bytes * num_est_edges_adj_graphs;
   double total_sketch_bytes = sketch_bytes * max_sketch_graphs;
 
-  std::cout << "Number of adj. list graphs: " << num_adj_graphs << "\n";
   std::cout << "Number of sketch graphs: " << num_sketch_graphs << "\n";
   std::cout << "  If complete graph with current num_nodes..." << "\n";
-  std::cout << "    Minimum number of adj. list graphs: " << min_adj_graphs << "\n";
   std::cout << "    Maximum number of sketch graphs: " << max_sketch_graphs << "\n";
   std::cout << "    Total minimum memory required for minimum number of adj. list graphs: " << total_adjlist_bytes / 1000000000 << "GB\n";
   std::cout << "    Total minimum memory required for maximum number of sketch graphs: " << total_sketch_bytes / 1000000000 << "GB\n";
@@ -157,7 +147,7 @@ int main(int argc, char **argv) {
   // Reconfigure sketches_factor based on reduced_k
   mc_config.sketches_factor(reduced_k);
 
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_updates, num_threads, reader_threads, get_seed(), sketchParams, num_graphs, min_adj_graphs, max_sketch_graphs, reduced_k, sketch_bytes, adjlist_edge_bytes, mc_config};
+  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_updates, num_threads, reader_threads, get_seed(), sketchParams, num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, mc_config};
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};
 
   auto ins_start = std::chrono::steady_clock::now();
@@ -169,7 +159,6 @@ int main(int argc, char **argv) {
   driver.prep_query(KSPANNINGFORESTS);
   cudaDeviceSynchronize();
   mc_gpu_alg.apply_flush_updates();
-  mc_gpu_alg.convert_adj_to_sketch();
   // Re-measure flush_end to include time taken for applying delta sketches from flushing
   auto flush_end = std::chrono::steady_clock::now();
 
@@ -186,9 +175,7 @@ int main(int argc, char **argv) {
   std::chrono::duration<double> viecut_time = std::chrono::nanoseconds::zero();
 
   std::cout << "After Insertion:\n";
-  num_adj_graphs = mc_gpu_alg.get_num_adj_graphs();
   num_sketch_graphs = mc_gpu_alg.get_num_sketch_graphs();
-  std::cout << "Number of adj. list graphs: " << num_adj_graphs << "\n";
   std::cout << "Number of sketch graphs: " << num_sketch_graphs << "\n";
 
   /********************************************************************\
@@ -207,12 +194,11 @@ int main(int argc, char **argv) {
     if (graph_id >= num_sketch_graphs) { // Get Spanning forests from adj list
       std::cout << "S" << graph_id << " (Adj. list):\n";
       auto sampling_forest_start = std::chrono::steady_clock::now();
-      spanningForests = mc_gpu_alg.get_adjlist_spanning_forests(graph_id, k);
+      spanningForests = mc_gpu_alg.get_adjlist_spanning_forests();
       sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
     } 
     else { // Get Spanning forests from sketch subgraph
       std::cout << "S" << graph_id << " (Sketch):\n";
-      mc_gpu_alg.set_trim_enbled(true, graph_id); // When trimming, only apply sketch updates to current subgraph
       for (int k_id = 0; k_id < k; k_id++) {
         std::cout << "  Getting spanning forest " << k_id << "\n";
 

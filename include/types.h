@@ -13,3 +13,18 @@ struct GraphUpdate {
   Edge edge;
   UpdateType type;
 };
+
+struct DepthTaggedUpdate {
+  node_id_t depth;
+  node_id_t dst;
+
+  bool operator<(const DepthTaggedUpdate& oth) const {
+    if (depth == oth.depth) return dst < oth.dst;
+    return depth < oth.depth;
+  }
+};
+
+struct TaggedUpdateBatch {
+  node_id_t src;
+  std::vector<DepthTaggedUpdate> dsts_data;
+};

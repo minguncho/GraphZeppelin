@@ -81,6 +81,7 @@ private:
   size_t get_and_apply_finished_stream(int stream_id, int thr_id);
   void complete_update_batch(int thr_id, const TaggedUpdateBatch &updates);
 
+  std::mutex sketch_creation_lock;
 public:
  MCGPUSketchAlg(node_id_t num_vertices, size_t num_updates, int num_threads,
                 int _num_reader_threads, size_t seed, SketchParams sketchParams, int _num_subgraphs,
@@ -124,14 +125,6 @@ public:
    // Create a bigger batch size to apply edge updates when subgraph is turning into sketch
    // representation
    batch_size = get_desired_updates_per_batch();
-
-   // Initialize the cudaUpdateParams for the first sketch (which is uninitialized at this point)
-   CudaUpdateParams* cudaUpdateParams;
-   gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
-   cudaUpdateParams = new CudaUpdateParams(
-       num_nodes, num_updates, num_samples, num_buckets, num_columns, bkt_per_col, num_threads,
-       num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
-   subgraphs.push_back({0, cudaUpdateParams});
 
    if (max_sketch_graphs > 0) {  // If max_sketch_graphs is 0, there will never be any sketch graphs
      int device_id = cudaGetDevice(&device_id);

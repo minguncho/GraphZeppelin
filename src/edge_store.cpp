@@ -26,7 +26,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     for (auto dst : dst_vertices) {
       auto idx = concat_pairing_fn(src, dst);
-      DepthTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
+      SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
       if (!adjlist[src].insert(data).second) {
         adjlist[src].erase(data);  // Current edge already exist, so delete
         edges_delta--;
@@ -42,10 +42,10 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
 
   check_if_too_big();
-  return {0, std::vector<DepthTaggedUpdate>()};
+  return {0, std::vector<SubgraphTaggedUpdate>()};
 }
 
-TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, const std::vector<DepthTaggedUpdate> &dst_data) {
+TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, const std::vector<SubgraphTaggedUpdate> &dst_data) {
   int edges_delta = 0;
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
@@ -65,7 +65,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, const std::vector<D
   }
 
   check_if_too_big();
-  return {0, std::vector<DepthTaggedUpdate>()};
+  return {0, std::vector<SubgraphTaggedUpdate>()};
 }
 
 // IMPORTANT: We must have completed any pending contractions before we call this function
@@ -83,9 +83,9 @@ std::vector<Edge> EdgeStore::get_edges() {
 
 TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
   node_id_t src = needs_contraction.fetch_add(1);
-  if (src > num_vertices) return {0, std::vector<DepthTaggedUpdate>()};
+  if (src > num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
 
-  std::vector<DepthTaggedUpdate> ret;
+  std::vector<SubgraphTaggedUpdate> ret;
   ret.resize(adjlist[src].size());
   int edges_delta = 0;
   {
@@ -128,4 +128,5 @@ void EdgeStore::check_if_too_big() {
 
   store_depth++;
   needs_contraction = 0;
+  std::cout << "EdgeStore: Contracting to subgraphs " << store_depth << " and above" << std::endl;
 }

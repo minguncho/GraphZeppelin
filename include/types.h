@@ -8,23 +8,23 @@ typedef uint64_t col_hash_t;
 static const auto& vec_hash = XXH3_64bits_withSeed;
 static const auto& col_hash = XXH3_64bits_withSeed;
 
-// Graph Stream Updates are parsed into the GraphUpdate type for more convinient processing
+// Graph Stream Updates are parsed into the GraphUpdate type for more convenient processing
 struct GraphUpdate {
   Edge edge;
   UpdateType type;
 };
 
-struct DepthTaggedUpdate {
-  node_id_t depth;
-  node_id_t dst;
+struct SubgraphTaggedUpdate {
+  node_id_t subgraph;  // highest index subgraph the edge maps to
+  node_id_t dst;       // destination vertex of edge
 
-  bool operator<(const DepthTaggedUpdate& oth) const {
-    if (depth == oth.depth) return dst < oth.dst;
-    return depth < oth.depth;
+  bool operator<(const SubgraphTaggedUpdate& oth) const {
+    if (subgraph < oth.subgraph) return true;
+    return dst < oth.dst;
   }
 };
 
 struct TaggedUpdateBatch {
   node_id_t src;
-  std::vector<DepthTaggedUpdate> dsts_data;
+  std::vector<SubgraphTaggedUpdate> dsts_data;
 };

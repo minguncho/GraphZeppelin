@@ -18,10 +18,10 @@ class EdgeStore {
   std::atomic<edge_id_t> num_edges;
   std::atomic<node_id_t> needs_contraction;
 
-  std::vector<std::set<DepthTaggedUpdate>> adjlist;
+  std::vector<std::set<SubgraphTaggedUpdate>> adjlist;
 
   size_t sketch_bytes;        // Bytes of sketch graph
-  static constexpr size_t store_edge_bytes = sizeof(DepthTaggedUpdate);  // Bytes of one edge
+  static constexpr size_t store_edge_bytes = sizeof(SubgraphTaggedUpdate);  // Bytes of one edge
 
   std::mutex* adj_mutex;
   std::mutex contract_lock;
@@ -37,7 +37,7 @@ class EdgeStore {
   // functions for adding data to the edge store
   // may return a vector of edges that need to be applied to
   TaggedUpdateBatch insert_adj_edges(node_id_t src, const std::vector<node_id_t>& dst_vertices);
-  TaggedUpdateBatch insert_adj_edges(node_id_t src, const std::vector<DepthTaggedUpdate>& dst_data);
+  TaggedUpdateBatch insert_adj_edges(node_id_t src, const std::vector<SubgraphTaggedUpdate>& dst_data);
 
   // Get methods
   size_t get_num_edges() {

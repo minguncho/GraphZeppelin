@@ -162,16 +162,12 @@ int main(int argc, char **argv) {
   // Re-measure flush_end to include time taken for applying delta sketches from flushing
   auto flush_end = std::chrono::steady_clock::now();
 
-  shutdown = true;
-  querier.join();
-
   // Display number of inserted updates to every subgraphs
   mc_gpu_alg.print_subgraph_edges();
 
   std::chrono::duration<double> sampling_forests_time = std::chrono::nanoseconds::zero();
   std::chrono::duration<double> trim_reading_time = std::chrono::nanoseconds::zero();
   std::chrono::duration<double> trim_flushing_time = std::chrono::nanoseconds::zero();
-  std::chrono::duration<double> cert_write_time = std::chrono::nanoseconds::zero();
   std::chrono::duration<double> viecut_time = std::chrono::nanoseconds::zero();
 
   std::cout << "After Insertion:\n";
@@ -257,9 +253,15 @@ int main(int argc, char **argv) {
       break;
     }
   }
+  auto query_end = std::chrono::steady_clock::now();
+
+
+  shutdown = true;
+  querier.join();
 
   std::chrono::duration<double> insert_time = flush_end - ins_start;
   std::chrono::duration<double> flush_time = flush_end - flush_start;
+  std::chrono::duration<double> query_time = query_end - flush_end;
 
   double num_seconds = insert_time.count();
   std::cout << "Insertion time(sec): " << num_seconds << std::endl;
@@ -269,7 +271,7 @@ int main(int argc, char **argv) {
   std::cout << "  Sampling Forests Time(sec): " << sampling_forests_time.count() << std::endl;
   std::cout << "  Trimming Forests Reading Time(sec): " << trim_reading_time.count() << std::endl;
   std::cout << "  Trimming Forests Flushing Time(sec): " << trim_flushing_time.count() << std::endl;
-  std::cout << "Certificate Writing Time(sec): " << cert_write_time.count() << std::endl;
   std::cout << "VieCut Program Time(sec): " << viecut_time.count() << std::endl;
+  std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 }

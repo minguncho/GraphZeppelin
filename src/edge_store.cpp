@@ -95,7 +95,7 @@ std::vector<Edge> EdgeStore::get_edges() {
   return ret;
 }
 
-TaggedUpdateBatch EdgeStore::vertex_contract(node_id_t src) {
+std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   std::vector<SubgraphTaggedUpdate> ret;
   ret.resize(adjlist[src].size());
   int edges_delta = 0;
@@ -121,7 +121,7 @@ TaggedUpdateBatch EdgeStore::vertex_contract(node_id_t src) {
   return ret;
 }
 
-std::pair<node_id_t, TaggedUpdateBatch> EdgeStore::vertex_advance_subgraph() {
+TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
   node_id_t src = 0;
   do {
     src = needs_contraction.fetch_add(1);
@@ -148,8 +148,8 @@ void EdgeStore::check_if_too_big() {
 
   store_depth++;
   needs_contraction = 0;
-  for (auto& vert : vertex_contracted) {
-    vert = false;
+  for (node_id_t i = 0; i < num_vertices; i++) {
+    vertex_contracted[i] = false;
   }
   std::cout << "EdgeStore: Contracting to subgraphs " << store_depth << " and above" << std::endl;
 }

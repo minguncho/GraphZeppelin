@@ -84,7 +84,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
       // TODO: Is this malloc necessary?
       gpuErrchk(cudaMallocManaged(&params, sizeof(CudaUpdateParams)));
       params = new CudaUpdateParams(
-         num_nodes, num_updates, num_samples, num_buckets, num_columns, bkt_per_col, num_threads,
+         num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
          num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
       subgraphs.push_back({cur_subgraphs, params});
       cur_subgraphs++;
@@ -120,8 +120,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   }
 
   // TODO: This memory allocation is sad
-  std::vector<DepthTaggedUpdate> store_edges;
-  std::vector<DepthTaggedUpdate> sketch_edges;
+  std::vector<SubgraphTaggedUpdate> store_edges;
+  std::vector<SubgraphTaggedUpdate> sketch_edges;
   size_t max_subgraph = 0;
 
   for (vec_t i = 0; i < dst_vertices.size(); i++) {

@@ -41,7 +41,6 @@ class CudaUpdateParams {
 
     // Parameter for entire graph
     node_id_t num_nodes;
-    size_t num_updates;
     
     // Parameter for each sketch (consistent with other sketches)
     size_t num_samples;
@@ -60,9 +59,9 @@ class CudaUpdateParams {
     // Default Constructor of CudaUpdateParams
     CudaUpdateParams():h_edgeUpdates(nullptr), d_edgeUpdates(nullptr) {};
     
-    CudaUpdateParams(node_id_t num_nodes, size_t num_updates, int num_samples, size_t num_buckets, size_t num_columns, size_t bkt_per_col, int num_host_threads, int num_reader_threads, int batch_size, int stream_multiplier, int num_device_blocks, int k = 1):
-      num_nodes(num_nodes), num_updates(num_updates), num_samples(num_samples), num_buckets(num_buckets), num_columns(num_columns), bkt_per_col(bkt_per_col), num_host_threads(num_host_threads), num_reader_threads(num_reader_threads), batch_size(batch_size), stream_multiplier(stream_multiplier), num_device_blocks(num_device_blocks), k(k) {
-      
+    CudaUpdateParams(node_id_t num_nodes, int num_samples, size_t num_buckets, size_t num_columns, size_t bkt_per_col, int num_host_threads, int num_reader_threads, int batch_size, int stream_multiplier, int num_device_blocks, int k = 1):
+      num_nodes(num_nodes), num_samples(num_samples), num_buckets(num_buckets), num_columns(num_columns), bkt_per_col(bkt_per_col), num_host_threads(num_host_threads), num_reader_threads(num_reader_threads), batch_size(batch_size), stream_multiplier(stream_multiplier), num_device_blocks(num_device_blocks), k(k) {
+
       // Allocate memory for buffer that stores edge updates
       gpuErrchk(cudaMallocHost(&h_edgeUpdates, stream_multiplier * num_host_threads * batch_size * sizeof(vec_t)));
       gpuErrchk(cudaMalloc(&d_edgeUpdates, stream_multiplier * num_host_threads * batch_size * sizeof(vec_t)));

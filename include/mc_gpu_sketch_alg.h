@@ -83,9 +83,9 @@ private:
 
   std::mutex sketch_creation_lock;
 public:
- MCGPUSketchAlg(node_id_t num_vertices, size_t num_updates, int num_threads,
-                int _num_reader_threads, size_t seed, SketchParams sketchParams, int _num_subgraphs,
-                int _max_sketch_graphs, int _k, size_t _sketch_bytes, CCAlgConfiguration config)
+ MCGPUSketchAlg(node_id_t num_vertices, int num_threads, int _num_reader_threads, size_t seed,
+                SketchParams sketchParams, int _num_subgraphs, int _max_sketch_graphs, int _k,
+                size_t _sketch_bytes, CCAlgConfiguration config)
      : MCSketchAlg(num_vertices, seed, _max_sketch_graphs, config),
        edge_store(seed, num_vertices, _sketch_bytes, _num_subgraphs) {
    // Start timer for initializing

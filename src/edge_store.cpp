@@ -52,7 +52,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   return {src, ret};
 }
 
-TaggedUpdateBatch EdgeStore::insert_adj_edges(size_t sketch_subgraphs, node_id_t src,
+TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                               const std::vector<SubgraphTaggedUpdate> &dst_data) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;

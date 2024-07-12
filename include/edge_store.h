@@ -44,8 +44,7 @@ class EdgeStore {
   TaggedUpdateBatch insert_adj_edges(node_id_t src, const std::vector<node_id_t>& dst_vertices);
 
   // this function is called when there are some sketch subgraphs.
-  // The caller passes in the number of subgraphs that were sketched when they built the dst_data
-  TaggedUpdateBatch insert_adj_edges(size_t sketch_subgraphs, node_id_t src,
+  TaggedUpdateBatch insert_adj_edges(node_id_t src,
                                      const std::vector<SubgraphTaggedUpdate>& dst_data);
 
   // Get methods

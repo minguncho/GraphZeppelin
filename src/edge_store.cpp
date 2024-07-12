@@ -22,8 +22,13 @@ EdgeStore::~EdgeStore() {
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                                    const std::vector<node_id_t> &dst_vertices) {
   int edges_delta = 0;
+  std::vector<SubgraphTaggedUpdate> ret;
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
+    if (true_store_depth < store_depth && !vertex_contracted[src]) {
+      ret = vertex_contract(src);
+    }
+
     for (auto dst : dst_vertices) {
       auto idx = concat_pairing_fn(src, dst);
       SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
@@ -37,18 +42,25 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
   num_edges += edges_delta;
 
-  if (true_store_depth < store_depth && needs_contraction < num_vertices) {
+  if (true_store_depth < store_depth && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
+  } else {
+    check_if_too_big();
   }
 
-  check_if_too_big();
-  return {0, std::vector<SubgraphTaggedUpdate>()};
+  return {src, ret};
 }
 
-TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, const std::vector<SubgraphTaggedUpdate> &dst_data) {
+TaggedUpdateBatch EdgeStore::insert_adj_edges(size_t sketch_subgraphs, node_id_t src,
+                                              const std::vector<SubgraphTaggedUpdate> &dst_data) {
   int edges_delta = 0;
+  std::vector<SubgraphTaggedUpdate> ret;
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
+    if (true_store_depth < store_depth && !vertex_contracted[src]) {
+      ret = vertex_contract(src);
+    }
+
     for (auto data : dst_data) {
       if (!adjlist[src].insert(data).second) {
         adjlist[src].erase(data);  // Current edge already exist, so delete
@@ -60,12 +72,13 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, const std::vector<S
   }
   num_edges += edges_delta;
 
-  if (true_store_depth < store_depth && needs_contraction < num_vertices) {
+  if (true_store_depth < store_depth && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
+  } else {
+    check_if_too_big();
   }
 
-  check_if_too_big();
-  return {0, std::vector<SubgraphTaggedUpdate>()};
+  return {src, ret};
 }
 
 // IMPORTANT: We must have completed any pending contractions before we call this function
@@ -81,10 +94,7 @@ std::vector<Edge> EdgeStore::get_edges() {
   return ret;
 }
 
-TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
-  node_id_t src = needs_contraction.fetch_add(1);
-  if (src > num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
-
+TaggedUpdateBatch EdgeStore::vertex_contract(node_id_t src) {
   std::vector<SubgraphTaggedUpdate> ret;
   ret.resize(adjlist[src].size());
   int edges_delta = 0;
@@ -93,22 +103,31 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
     auto it_begin = adjlist[src].begin();
     auto it = it_begin;
     for (; it != adjlist[src].end(); it++) {
-      if (it->depth >= store_depth) {
-        it--;
-        break;
+      if (it->subgraph >= store_depth) {
+        // got to the end of stuff that should be removed
+        adjlist[src].erase(it_begin, --it);
+        num_edges += edges_delta;
+        ++it;
       }
       ret.push_back(*it);
       edges_delta--;
     }
-
-    adjlist[src].erase(it_begin, it);
   }
-  num_edges += edges_delta;
 
   if (src == num_vertices - 1) {
     true_store_depth++;
   }
-  return {src, ret};
+  return ret;
+}
+
+std::pair<node_id_t, TaggedUpdateBatch> EdgeStore::vertex_advance_subgraph() {
+  node_id_t src = 0;
+  do {
+    src = needs_contraction.fetch_add(1);
+    if (src > num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
+  } while (!vertex_contracted[src]);
+
+  return {src, vertex_contract(src)};
 }
 
 // checks if we should perform a contraction and begins the process if so
@@ -128,5 +147,8 @@ void EdgeStore::check_if_too_big() {
 
   store_depth++;
   needs_contraction = 0;
+  for (auto& vert : vertex_contracted) {
+    vert = false;
+  }
   std::cout << "EdgeStore: Contracting to subgraphs " << store_depth << " and above" << std::endl;
 }

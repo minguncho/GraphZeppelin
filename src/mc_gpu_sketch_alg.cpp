@@ -53,7 +53,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int stream_id, int thr_id) 
 // TODO: This function may need to divide the updates into multiple update batches.
 //       This is the case when a single vertex in edge store has O(n) updates.
 //       Could enforce that this is the caller's responsibility.
-void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates) {
+void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, size_t min_subgraph) {
   int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(stream_id, thr_id);
   int start_index = stream_id * batch_size;
 
@@ -64,7 +64,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   for (auto dst_data : dsts_data) {
     max_subgraph = std::max(dst_data.subgraph, max_subgraph);
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_data.dst));
-    for (size_t graph_id = 0; graph_id <= std::min(dst_data.subgraph, cur_subgraphs.load()); graph_id++) {
+    for (size_t graph_id = min_subgraph; graph_id <= std::min(dst_data.subgraph, cur_subgraphs.load()); graph_id++) {
       subgraphs[graph_id].cudaUpdateParams->h_edgeUpdates[start_index + sketch_update_size[graph_id]] = edge_id;
       sketch_update_size[graph_id]++;
     }

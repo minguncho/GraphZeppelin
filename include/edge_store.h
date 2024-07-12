@@ -20,6 +20,8 @@ class EdgeStore {
 
   std::vector<std::set<SubgraphTaggedUpdate>> adjlist;
 
+  std::vector<bool> vertex_contracted;
+
   size_t sketch_bytes;        // Bytes of sketch graph
   static constexpr size_t store_edge_bytes = sizeof(SubgraphTaggedUpdate);  // Bytes of one edge
 
@@ -36,8 +38,14 @@ class EdgeStore {
 
   // functions for adding data to the edge store
   // may return a vector of edges that need to be applied to
+
+  // this first function is only called when there exist no sketch subgraphs
   TaggedUpdateBatch insert_adj_edges(node_id_t src, const std::vector<node_id_t>& dst_vertices);
-  TaggedUpdateBatch insert_adj_edges(node_id_t src, const std::vector<SubgraphTaggedUpdate>& dst_data);
+
+  // this function is called when there are some sketch subgraphs.
+  // The caller passes in the number of subgraphs that were sketched when they built the dst_data
+  TaggedUpdateBatch insert_adj_edges(size_t sketch_subgraphs, node_id_t src,
+                                     const std::vector<SubgraphTaggedUpdate>& dst_data);
 
   // Get methods
   size_t get_num_edges() {

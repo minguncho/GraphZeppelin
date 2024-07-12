@@ -28,7 +28,7 @@ class EdgeStore {
   std::mutex* adj_mutex;
   std::mutex contract_lock;
 
-  std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src);
+  std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);
   TaggedUpdateBatch vertex_advance_subgraph();
   void check_if_too_big();
  public:

@@ -10,7 +10,8 @@ EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, s
       num_vertices(num_vertices),
       num_subgraphs(num_subgraphs),
       adjlist(num_vertices),
-      sketch_bytes(sketch_bytes) {
+      sketch_bytes(sketch_bytes),
+      vertex_contracted(num_vertices, false) {
   num_edges = 0;
   adj_mutex = new std::mutex[num_vertices];
 }

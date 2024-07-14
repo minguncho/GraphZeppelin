@@ -58,10 +58,16 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   int start_index = stream_id * batch_size;
 
   size_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
+  if (edge_store_subgraphs == 0) {
+    std::cerr << "ERROR: Why are we in this function! complete_update_batch()" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
   // do we need to allocate more sketches due to edge_store contraction
   if (edge_store_subgraphs > cur_subgraphs) {
     if (cur_subgraphs < edge_store_subgraphs - 1) {
       std::cerr << "ERROR: Too many outstanding subgraph allocations. What is happening?" << std::endl;
+      exit(EXIT_FAILURE);
     }
 
     sketch_creation_lock.lock();
@@ -86,9 +92,11 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   std::vector<size_t> sketch_update_size(max_sketch_graphs);
   node_id_t max_subgraph = 0;
   for (auto dst_data : dsts_data) {
-    max_subgraph = std::max(dst_data.subgraph, max_subgraph);
+    size_t update_subgraphs = std::min(dst_data.subgraph, edge_store_subgraphs - 1);
+    max_subgraph = std::max(update_subgraphs, max_subgraph);
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_data.dst));
-    for (size_t graph_id = min_subgraph; graph_id <= std::min(dst_data.subgraph, cur_subgraphs.load()); graph_id++) {
+
+    for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
       subgraphs[graph_id].cudaUpdateParams->h_edgeUpdates[start_index + sketch_update_size[graph_id]] = edge_id;
       sketch_update_size[graph_id]++;
     }

@@ -95,24 +95,22 @@ std::vector<Edge> EdgeStore::get_edges() {
   return ret;
 }
 
+// the thread MUST hold the lock on src before calling this function
 std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   std::vector<SubgraphTaggedUpdate> ret;
   ret.resize(adjlist[src].size());
   int edges_delta = 0;
-  {
-    std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    auto it_begin = adjlist[src].begin();
-    auto it = it_begin;
-    for (; it != adjlist[src].end(); it++) {
-      if (it->subgraph >= store_depth) {
-        // got to the end of stuff that should be removed
-        adjlist[src].erase(it_begin, --it);
-        num_edges += edges_delta;
-        ++it;
-      }
-      ret.push_back(*it);
-      edges_delta--;
+  auto it_begin = adjlist[src].begin();
+  auto it = it_begin;
+  for (; it != adjlist[src].end(); it++) {
+    if (it->subgraph >= store_depth) {
+      // got to the end of stuff that should be removed
+      adjlist[src].erase(it_begin, --it);
+      num_edges += edges_delta;
+      ++it;
     }
+    ret.push_back(*it);
+    edges_delta--;
   }
 
   if (src == num_vertices - 1) {
@@ -128,6 +126,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
     if (src > num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
   } while (!vertex_contracted[src]);
 
+  std::lock_guard<std::mutex> lk(adjlist[src]);
   return {src, vertex_contract(src)};
 }
 

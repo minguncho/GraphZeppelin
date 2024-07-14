@@ -134,14 +134,14 @@ public:
      std::cout << "CUDA Device ID: " << device_id << "\n";
 
      // Calculate the num_buckets assigned to the last thread block
-     size_t num_last_tb_buckets =
-         (subgraphs[0].cudaUpdateParams->num_tb_columns[num_device_blocks - 1] * bkt_per_col) + 1;
+     // size_t num_last_tb_buckets =
+     //     (subgraphs[0].cudaUpdateParams->num_tb_columns[num_device_blocks - 1] * bkt_per_col) + 1;
 
-     // Set maxBytes for GPU kernel's shared memory
-     size_t maxBytes =
-         (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));
-     cudaKernel.updateSharedMemory(maxBytes);
-     std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
+     // // Set maxBytes for GPU kernel's shared memory
+     // size_t maxBytes =
+     //     (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));
+     // cudaKernel.updateSharedMemory(maxBytes);
+     // std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
    }
 
    // Initialize CUDA Streams

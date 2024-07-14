@@ -5,6 +5,8 @@
 #include <vector>
 
 size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
+  size_t loop = 0;
+
   int stream_id = thr_id * stream_multiplier;
   size_t stream_offset = 0;
   while(true) {
@@ -44,6 +46,9 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
     stream_offset++;
     if (stream_offset == stream_multiplier) {
         stream_offset = 0;
+        loop++;
+        if (loop % 100000 == 0)
+          std::cerr << "Looped on unfinished streams!" << std::endl;
     }
   }
   return stream_id + stream_offset;

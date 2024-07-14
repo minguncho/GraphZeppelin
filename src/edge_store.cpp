@@ -97,7 +97,7 @@ std::vector<Edge> EdgeStore::get_edges() {
 
 // the thread MUST hold the lock on src before calling this function
 std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
-  std::cerr << "Contracting vertex: " << src << std::endl;
+  std::cerr << "Contracting vertex: " << src << " ";
 
   std::vector<SubgraphTaggedUpdate> ret;
   if (adjlist[src].size() == 0) return ret;
@@ -118,10 +118,14 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   // now perform the deletion
   adjlist[src].erase(it_begin, delete_it);
   num_edges += edges_delta;
+  std::cerr << edges_delta * - 1 << " updates deleted " << std::endl;
+
 
   if (src == num_vertices - 1) {
     true_min_subgraph++;
   }
+
+  std::cerr << ret.size() << " updates returned" << std::endl;
   return ret;
 }
 

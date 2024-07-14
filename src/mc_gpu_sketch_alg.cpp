@@ -57,7 +57,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(stream_id, thr_id);
   int start_index = stream_id * batch_size;
 
-  size_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
+  node_id_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
   if (edge_store_subgraphs == 0) {
     std::cerr << "ERROR: Why are we in this function! complete_update_batch()" << std::endl;
     exit(EXIT_FAILURE);
@@ -92,7 +92,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   std::vector<size_t> sketch_update_size(max_sketch_graphs);
   node_id_t max_subgraph = 0;
   for (auto dst_data : dsts_data) {
-    size_t update_subgraphs = std::min(dst_data.subgraph, edge_store_subgraphs - 1);
+    node_id_t update_subgraphs = std::min(dst_data.subgraph, edge_store_subgraphs - 1);
     max_subgraph = std::max(update_subgraphs, max_subgraph);
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_data.dst));
 

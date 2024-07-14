@@ -11,7 +11,6 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
   size_t stream_offset = 0;
   while(true) {
     int cur_stream = stream_id + stream_offset;
-    std::cerr << cur_stream << std::endl;
     if (cudaStreamQuery(streams[cur_stream].stream) == cudaSuccess) {
 
       // CUDA Stream is available, check if it has any delta sketch
@@ -48,7 +47,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
     if (stream_offset == stream_multiplier) {
         stream_offset = 0;
         loop++;
-        if (loop % 100000 == 0)
+        if (loop % 1000000 == 0)
           std::cerr << "Looped on unfinished streams!" << std::endl;
     }
   }

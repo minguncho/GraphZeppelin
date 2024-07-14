@@ -55,8 +55,7 @@ class EdgeStore {
     return num_edges * store_edge_bytes;
   }
   size_t get_first_store_subgraph() {
-    return store_depth;
+    return cur_subgraph;
   }
   std::vector<Edge> get_edges();
-  size_t get_cur_subgraph() { return cur_subgraph; }
 };

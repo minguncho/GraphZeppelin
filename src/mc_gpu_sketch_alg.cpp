@@ -57,7 +57,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(stream_id, thr_id);
   int start_index = stream_id * batch_size;
 
-  size_t edge_store_subgraphs = edge_store.get_cur_subgraph();
+  size_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
   // do we need to allocate more sketches due to edge_store contraction
   if (edge_store_subgraphs > cur_subgraphs) {
     if (cur_subgraphs < edge_store_subgraphs - 1) {

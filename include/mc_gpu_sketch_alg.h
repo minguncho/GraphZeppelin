@@ -78,7 +78,7 @@ private:
   std::vector<CudaStream> streams;
 
   // helper functions for apply_update_batch()
-  size_t get_and_apply_finished_stream(int stream_id, int thr_id);
+  size_t get_and_apply_finished_stream(int thr_id);
   void complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, size_t min_subgraph = 0);
 
   std::mutex sketch_creation_lock;

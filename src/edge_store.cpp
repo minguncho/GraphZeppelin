@@ -100,20 +100,24 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   std::cerr << "Contracting vertex: " << src << std::endl;
 
   std::vector<SubgraphTaggedUpdate> ret;
+  if (adjlist[src].size() == 0) return ret;
+
   ret.resize(adjlist[src].size());
   int edges_delta = 0;
   auto it_begin = adjlist[src].begin();
   auto it = it_begin;
+  auto delete_it = it_begin;
   for (; it != adjlist[src].end(); it++) {
-    if (it->subgraph >= store_depth) {
-      // got to the end of stuff that should be removed
-      adjlist[src].erase(it_begin, --it);
-      num_edges += edges_delta;
-      ++it;
+    if (it->subgraph < store_depth) {
+      delete_it++;
+      edges_delta--;
     }
     ret.push_back(*it);
-    edges_delta--;
   }
+
+  // now perform the deletion
+  adjlist[src].erase(it_begin, delete_it);
+  num_edges += edges_delta;
 
   if (src == num_vertices - 1) {
     true_store_depth++;

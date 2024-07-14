@@ -100,7 +100,10 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   std::cerr << "Contracting vertex: " << src << " ";
 
   std::vector<SubgraphTaggedUpdate> ret;
-  if (adjlist[src].size() == 0) return ret;
+  if (adjlist[src].size() == 0) {
+    std::cerr << "empty" << std::endl;
+    return ret;
+  }
 
   ret.resize(adjlist[src].size());
   int edges_delta = 0;

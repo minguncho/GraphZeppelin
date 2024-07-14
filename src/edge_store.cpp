@@ -126,7 +126,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
     if (src > num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
   } while (!vertex_contracted[src]);
 
-  std::lock_guard<std::mutex> lk(adjlist[src]);
+  std::lock_guard<std::mutex> lk(adj_mutex[src]);
   return {src, vertex_contract(src)};
 }
 

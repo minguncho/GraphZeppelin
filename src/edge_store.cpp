@@ -121,7 +121,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   // now perform the deletion
   adjlist[src].erase(it_begin, delete_it);
   num_edges += edges_delta;
-  std::cerr << edges_delta * - 1 << " updates deleted " << std::endl;
+  std::cerr << edges_delta * - 1 << " updates deleted ";
 
 
   if (src == num_vertices - 1) {

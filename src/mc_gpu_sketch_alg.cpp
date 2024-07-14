@@ -120,6 +120,9 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     cudaMemcpyAsync(&cudaUpdateParams->h_bucket_a[stream_id * num_buckets], &cudaUpdateParams->d_bucket_a[stream_id * num_buckets], num_buckets * sizeof(vec_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
     cudaMemcpyAsync(&cudaUpdateParams->h_bucket_c[stream_id * num_buckets], &cudaUpdateParams->d_bucket_c[stream_id * num_buckets], num_buckets * sizeof(vec_hash_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
   }
+
+  std::cerr << "Kernel Launched on stream: " << stream_id << std::endl;
+  std::cerr << "Stream multiplier: " << stream_multiplier << std::endl;
 }
 
 void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,

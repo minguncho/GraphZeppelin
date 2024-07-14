@@ -4,7 +4,8 @@
 #include <thread>
 #include <vector>
 
-size_t MCGPUSketchAlg::get_and_apply_finished_stream(int stream_id, int thr_id) {
+size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
+  int stream_id = thr_id * stream_multiplier;
   size_t stream_offset = 0;
   while(true) {
     int cur_stream = stream_id + stream_offset;
@@ -45,7 +46,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int stream_id, int thr_id) 
         stream_offset = 0;
     }
   }
-  return stream_offset;
+  return stream_id + stream_offset;
 }
 
 // call this function after we have found the depth of each update
@@ -53,7 +54,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int stream_id, int thr_id) 
 //       This is the case when a single vertex in edge store has O(n) updates.
 //       Could enforce that this is the caller's responsibility.
 void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, size_t min_subgraph) {
-  int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(stream_id, thr_id);
+  int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(thr_id);
   int start_index = stream_id * batch_size;
 
   node_id_t edge_store_subgraphs = edge_store.get_first_store_subgraph();

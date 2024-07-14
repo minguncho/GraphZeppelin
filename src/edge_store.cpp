@@ -97,6 +97,8 @@ std::vector<Edge> EdgeStore::get_edges() {
 
 // the thread MUST hold the lock on src before calling this function
 std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
+  std::cerr << "Contracting vertex: " << src << std::endl;
+
   std::vector<SubgraphTaggedUpdate> ret;
   ret.resize(adjlist[src].size());
   int edges_delta = 0;
@@ -150,5 +152,8 @@ void EdgeStore::check_if_too_big() {
   for (node_id_t i = 0; i < num_vertices; i++) {
     vertex_contracted[i] = false;
   }
-  std::cout << "EdgeStore: Contracting to subgraphs " << store_depth << " and above" << std::endl;
+  std::cerr << "EdgeStore: Contracting to subgraphs " << store_depth << " and above" << std::endl;
+  std::cerr << "    num_edges = " << num_edges << std::endl;
+  std::cerr << "    store_edge_bytes = " << store_edge_bytes << std::endl; 
+  std::cerr << "    sketch_bytes = " << sketch_bytes << std::endl;
 }

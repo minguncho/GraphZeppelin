@@ -26,7 +26,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   std::vector<SubgraphTaggedUpdate> ret;
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    if (true_store_depth < store_depth && !vertex_contracted[src]) {
+    if (true_min_subgraph < cur_subgraph && !vertex_contracted[src]) {
       ret = vertex_contract(src);
     }
 
@@ -43,7 +43,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
   num_edges += edges_delta;
 
-  if (true_store_depth < store_depth && needs_contraction < num_vertices && ret.size() == 0) {
+  if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
   } else {
     check_if_too_big();
@@ -58,7 +58,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   std::vector<SubgraphTaggedUpdate> ret;
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    if (true_store_depth < store_depth && !vertex_contracted[src]) {
+    if (true_min_subgraph < cur_subgraph && !vertex_contracted[src]) {
       ret = vertex_contract(src);
     }
 
@@ -73,7 +73,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
   num_edges += edges_delta;
 
-  if (true_store_depth < store_depth && needs_contraction < num_vertices && ret.size() == 0) {
+  if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
   } else {
     check_if_too_big();
@@ -108,7 +108,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   auto it = it_begin;
   auto delete_it = it_begin;
   for (; it != adjlist[src].end(); it++) {
-    if (it->subgraph < store_depth) {
+    if (it->subgraph < cur_subgraph) {
       delete_it++;
       edges_delta--;
     }
@@ -120,7 +120,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   num_edges += edges_delta;
 
   if (src == num_vertices - 1) {
-    true_store_depth++;
+    true_min_subgraph++;
   }
   return ret;
 }
@@ -146,17 +146,17 @@ void EdgeStore::check_if_too_big() {
 
   // we may need to perform a contraction
   std::lock_guard<std::mutex> lk(contract_lock);
-  if (true_store_depth < store_depth) {
+  if (true_min_subgraph < cur_subgraph) {
     // another thread already started contraction
     return;
   }
 
-  store_depth++;
+  cur_subgraph++;
   needs_contraction = 0;
   for (node_id_t i = 0; i < num_vertices; i++) {
     vertex_contracted[i] = false;
   }
-  std::cerr << "EdgeStore: Contracting to subgraphs " << store_depth << " and above" << std::endl;
+  std::cerr << "EdgeStore: Contracting to subgraphs " << cur_subgraph << " and above" << std::endl;
   std::cerr << "    num_edges = " << num_edges << std::endl;
   std::cerr << "    store_edge_bytes = " << store_edge_bytes << std::endl; 
   std::cerr << "    sketch_bytes = " << sketch_bytes << std::endl;

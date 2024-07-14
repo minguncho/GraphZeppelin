@@ -12,8 +12,8 @@ class EdgeStore {
   size_t seed;
   node_id_t num_vertices;
   size_t num_subgraphs;
-  volatile size_t store_depth = 0; // subgraph depth at which edges enter the edge store
-  volatile size_t true_store_depth = 0; // the minimum subgraph of elements in the store
+  volatile size_t cur_subgraph = 0; // subgraph depth at which edges enter the edge store
+  volatile size_t true_min_subgraph = 0; // the minimum subgraph of elements in the store
 
   std::atomic<edge_id_t> num_edges;
   std::atomic<node_id_t> needs_contraction;
@@ -58,4 +58,5 @@ class EdgeStore {
     return store_depth;
   }
   std::vector<Edge> get_edges();
+  size_t get_cur_subgraph() { return cur_subgraph; }
 };

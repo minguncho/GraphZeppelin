@@ -57,6 +57,30 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(stream_id, thr_id);
   int start_index = stream_id * batch_size;
 
+  size_t edge_store_subgraphs = edge_store.get_cur_subgraph();
+  // do we need to allocate more sketches due to edge_store contraction
+  if (edge_store_subgraphs > cur_subgraphs) {
+    if (cur_subgraphs < edge_store_subgraphs - 1) {
+      std::cerr << "ERROR: Too many outstanding subgraph allocations. What is happening?" << std::endl;
+    }
+
+    sketch_creation_lock.lock();
+
+    // double check to ensure no one else performed the allocation 
+    if (edge_store_subgraphs > cur_subgraphs) {
+      CudaUpdateParams* params;
+      // TODO: Is this malloc necessary?
+      gpuErrchk(cudaMallocManaged(&params, sizeof(CudaUpdateParams)));
+      params = new CudaUpdateParams(
+         num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
+         num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
+      subgraphs.push_back({0, params});
+      cur_subgraphs++;
+    }
+
+    sketch_creation_lock.unlock();
+  }
+
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
   std::vector<size_t> sketch_update_size(max_sketch_graphs);
@@ -68,29 +92,6 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
       subgraphs[graph_id].cudaUpdateParams->h_edgeUpdates[start_index + sketch_update_size[graph_id]] = edge_id;
       sketch_update_size[graph_id]++;
     }
-  }
-
-  // do we need to allocate more sketches due to edge_store contraction
-  if (max_subgraph > cur_subgraphs) {
-    if (cur_subgraphs < max_subgraph - 1) {
-      std::cerr << "ERROR: Too many outstanding subgraph allocations. What is happening?" << std::endl;
-    }
-
-    sketch_creation_lock.lock();
-
-    // double check to ensure no one else performed the allocation 
-    if (max_subgraph > cur_subgraphs) {
-      CudaUpdateParams* params;
-      // TODO: Is this malloc necessary?
-      gpuErrchk(cudaMallocManaged(&params, sizeof(CudaUpdateParams)));
-      params = new CudaUpdateParams(
-         num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
-         num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
-      subgraphs.push_back({cur_subgraphs, params});
-      cur_subgraphs++;
-    }
-
-    sketch_creation_lock.unlock();
   }
 
   // Go every subgraph and apply sketch updates

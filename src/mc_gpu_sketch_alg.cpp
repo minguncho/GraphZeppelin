@@ -7,36 +7,35 @@
 size_t MCGPUSketchAlg::get_and_apply_finished_stream(int stream_id, int thr_id) {
   size_t stream_offset = 0;
   while(true) {
-    if (cudaStreamQuery(streams[stream_id + stream_offset].stream) == cudaSuccess) {
-      // Update stream_id
-      stream_id += stream_offset;
+    int cur_stream = stream_id + stream_offset;
+    if (cudaStreamQuery(streams[cur_stream].stream) == cudaSuccess) {
 
       // CUDA Stream is available, check if it has any delta sketch
-      if(streams[stream_id].delta_applied == 0) {
+      if(streams[cur_stream].delta_applied == 0) {
 
-        for (int graph_id = 0; graph_id < streams[stream_id].num_graphs; graph_id++) {   
+        for (int graph_id = 0; graph_id < streams[cur_stream].num_graphs; graph_id++) {   
           size_t bucket_offset = thr_id * num_buckets;
           for (size_t i = 0; i < num_buckets; i++) {
-            delta_buckets[bucket_offset + i].alpha = subgraphs[graph_id].cudaUpdateParams->h_bucket_a[(stream_id * num_buckets) + i];
-            delta_buckets[bucket_offset + i].gamma = subgraphs[graph_id].cudaUpdateParams->h_bucket_c[(stream_id * num_buckets) + i];
+            delta_buckets[bucket_offset + i].alpha = subgraphs[graph_id].cudaUpdateParams->h_bucket_a[(cur_stream * num_buckets) + i];
+            delta_buckets[bucket_offset + i].gamma = subgraphs[graph_id].cudaUpdateParams->h_bucket_c[(cur_stream * num_buckets) + i];
           }
 
-          int prev_src = streams[stream_id].src_vertex;
+          int prev_src = streams[cur_stream].src_vertex;
           
           if(prev_src == -1) {
-            std::cout << "Stream #" << stream_id << ": Shouldn't be here!\n";
+            std::cout << "Stream #" << cur_stream << ": Shouldn't be here!\n";
           }
 
           // Apply the delta sketch
           apply_raw_buckets_update((graph_id * num_nodes) + prev_src, &delta_buckets[bucket_offset]);
         }
-        streams[stream_id].delta_applied = 1;
-        streams[stream_id].src_vertex = -1;
-        streams[stream_id].num_graphs = -1;
+        streams[cur_stream].delta_applied = 1;
+        streams[cur_stream].src_vertex = -1;
+        streams[cur_stream].num_graphs = -1;
       }
       else {
-        if (streams[stream_id].src_vertex != -1) {
-          std::cout << "Stream #" << stream_id << ": not applying but has delta sketch: " << streams[stream_id].src_vertex << " deltaApplied: " << streams[stream_id].delta_applied << "\n";
+        if (streams[cur_stream].src_vertex != -1) {
+          std::cout << "Stream #" << cur_stream << ": not applying but has delta sketch: " << streams[cur_stream].src_vertex << " deltaApplied: " << streams[cur_stream].delta_applied << "\n";
         }
       }
       break;

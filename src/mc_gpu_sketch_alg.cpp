@@ -157,7 +157,7 @@ void MCGPUSketchAlg::convert_adj_to_sketch() {
     gpuErrchk(cudaMemcpy(d_update_start_index, h_update_start_index.data(), batch_count * sizeof(vec_t), cudaMemcpyHostToDevice));
 
     gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, subgraphs[graph_id]->get_num_adj_edges() * sizeof(vec_t), cudaMemcpyHostToDevice));
-    cudaKernel.single_sketchUpdate(num_device_threads, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, subgraphs[graph_id]->get_cudaUpdateParams(), sketchSeed);
+    cudaKernel.single_sketchUpdate(num_device_threads, batch_count, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, subgraphs[graph_id]->get_cudaUpdateParams(), sketchSeed);
     cudaDeviceSynchronize();
 
     /*gpuErrchk(cudaFree(d_edgeUpdates));

@@ -65,7 +65,7 @@ void track_insertions(uint64_t total, GraphSketchDriver<SKGPUSketchAlg> *driver,
 int main(int argc, char **argv) {
   if (argc != 4) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, num_thread_blocks" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -86,16 +86,34 @@ int main(int argc, char **argv) {
   std::cout << "num_updates = " << num_updates << std::endl;
   std::cout << std::endl;
 
+  // Get variables from sketch
+  SketchParams sketchParams;
+  sketchParams.num_samples = Sketch::calc_cc_samples(num_nodes, 1);
+  sketchParams.num_columns = sketchParams.num_samples * Sketch::default_cols_per_sample;
+  sketchParams.bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_nodes));
+  sketchParams.num_buckets = sketchParams.num_columns * sketchParams.bkt_per_col + 1;
+
+  std::cout << "num_samples: " << sketchParams.num_samples << "\n";
+  std::cout << "num_buckets: " << sketchParams.num_buckets << "\n";
+  std::cout << "num_columns: " << sketchParams.num_columns << "\n";
+  std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
+
+  // Allocate memory for buckets
+  Bucket* buckets;
+  gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+
   auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
   auto cc_config = CCAlgConfiguration().batch_factor(6);
-  SKGPUSketchAlg sk_gpu_alg{num_nodes, num_updates * 2, num_threads, get_seed(), cc_config};
+
+  SKGPUSketchAlg sk_gpu_alg{num_nodes, num_updates, num_threads, buckets, get_seed(), sketchParams, cc_config};
   GraphSketchDriver<SKGPUSketchAlg> driver{&sk_gpu_alg, &stream, driver_config, reader_threads};
   
   auto ins_start = std::chrono::steady_clock::now();
   std::thread querier(track_insertions, num_updates, &driver, ins_start);
 
   driver.process_stream_until(END_OF_STREAM);
-  std::cout << "Flushing... Current batch_count: " << sk_gpu_alg.get_batch_count() << "\n";
+  std::cout << "Flushing...\n";
+  std::cout << "# of Batches with full batch size: " << sk_gpu_alg.get_batch_count() << "\n";
 
   auto flush_start = std::chrono::steady_clock::now();
   driver.prep_query(KSPANNINGFORESTS);
@@ -109,11 +127,6 @@ int main(int argc, char **argv) {
   sk_gpu_alg.launch_gpu_kernel();
   auto sketch_end = std::chrono::steady_clock::now();
 
-  // Apply delta sketch
-  auto delta_start = std::chrono::steady_clock::now();
-  sk_gpu_alg.apply_delta_sketch();
-  auto delta_end = std::chrono::steady_clock::now();
-
   // Get CC
   auto cc_start = std::chrono::steady_clock::now();
   auto CC_num = sk_gpu_alg.connected_components().size();
@@ -121,12 +134,10 @@ int main(int argc, char **argv) {
   std::chrono::duration<double> insert_time = flush_end - ins_start;
   std::chrono::duration<double> flush_time = flush_end - flush_start;
   std::chrono::duration<double> sketch_time = sketch_end - sketch_start;
-  std::chrono::duration<double> delta_time = delta_end - delta_start;
 
   std::cout << "GTS insertion time(sec):    " << insert_time.count() << std::endl;
   std::cout << "  Flush Gutters(sec):           " << flush_time.count() << std::endl;
   std::cout << "GPU time (sec):    " << sketch_time.count() << std::endl;
-  std::cout << "Delta sketch applying time (sec):    " << delta_time.count() << std::endl;
   std::cout << "Total CC query latency:       " << cc_time.count() << std::endl;
   std::cout << "Connected Components:         " << CC_num << std::endl;
   std::cout << "Maximum Memory Usage(MiB):    " << get_max_mem_used() << std::endl;

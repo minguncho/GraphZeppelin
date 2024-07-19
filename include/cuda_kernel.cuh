@@ -99,7 +99,7 @@ class CudaKernel {
     *
     */
     void sketchUpdate(int num_threads, int num_blocks, node_id_t src_vertex, cudaStream_t stream, vec_t *edgeUpdates, size_t update_size, CudaUpdateParams* cudaUpdateParams, long sketchSeed);
-    void single_sketchUpdate(int num_threads, int num_blocks, vec_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed);
+    void single_sketchUpdate(int num_threads, int num_blocks, size_t num_batches, vec_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed);
 
     void updateSharedMemory(size_t maxBytes);
 

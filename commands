@@ -25,6 +25,11 @@ ncu -o ./kron_16_single_kernel_parallel_dram -f --set full --target-processes al
 ncu -o ./kron_16_single_kernel -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 8 8
 ncu -o ./kron_17_single_kernel -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_17_stream_binary 8 8
 
+ncu -o ./kron_16_test108 -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 24 24 108
+ncu -o ./kron_16_test109 -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 24 24 109
+ncu -o ./kron_16_test216 -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 24 24 216
+ncu -o ./kron_16_test162000 -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 12 12 1
+
 nsys profile -o multiples_1024_one -f true ./cuda_process_stream ../test/res/multiples_graph_1024_stream.data 1 1
 nsys profile -o kron_13_one -f true ./cuda_process_stream ../../../datasets/kron_13_stream_binary 1 1
 nsys profile -o kron_13_8 -f true ./cuda_process_stream ../../../datasets/kron_13_stream_binary 8 8

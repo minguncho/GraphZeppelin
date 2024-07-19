@@ -28,13 +28,15 @@ MCSubgraph::~MCSubgraph() {
 
 void MCSubgraph::insert_adj_edge(node_id_t src, std::vector<node_id_t> dst_vertices) {
   std::lock_guard<std::mutex> lk(adj_mutex[src]);
+  int num_updated_edges = 0;
   for (auto dst : dst_vertices) {
     if (adjlist[src].find(dst) == adjlist[src].end()) {
       adjlist[src].insert(dst);
-      num_adj_edges++;
+      num_updated_edges++;
     } else {
       adjlist[src].erase(dst);  // Current edge already exist, so delete
-      num_adj_edges--;
+      num_updated_edges--;
     }
   }
+  num_adj_edges += num_updated_edges;
 }

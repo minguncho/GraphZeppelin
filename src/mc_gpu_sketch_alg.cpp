@@ -12,6 +12,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
   while(true) {
     int cur_stream = stream_id + stream_offset;
     if (cudaStreamQuery(streams[cur_stream].stream) == cudaSuccess) {
+      std::cerr << "Found a delta to apply. cur_stream = " << cur_stream << " ng = " << streams[cur_stream].num_graphs << std::endl;
 
       // CUDA Stream is available, check if it has any delta sketch
       if(streams[cur_stream].delta_applied == 0) {
@@ -30,11 +31,13 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
           }
 
           // Apply the delta sketch
+          std::cerr << "applying delta to graph = " << graph_id << " vertex = " << prev_src << std::endl;
           apply_raw_buckets_update((graph_id * num_nodes) + prev_src, &delta_buckets[bucket_offset]);
         }
         streams[cur_stream].delta_applied = 1;
         streams[cur_stream].src_vertex = -1;
         streams[cur_stream].num_graphs = -1;
+        std::cerr << "Finished applying delta" << std::endl;
       }
       else {
         if (streams[cur_stream].src_vertex != -1) {
@@ -79,6 +82,8 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     // double check to ensure no one else performed the allocation 
     if (edge_store_subgraphs > cur_subgraphs) {
+      create_sketch_graph(cur_subgraphs++);
+
       CudaUpdateParams* params;
       // TODO: Is this malloc necessary?
       gpuErrchk(cudaMallocManaged(&params, sizeof(CudaUpdateParams)));
@@ -86,7 +91,6 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
          num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
          num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
       subgraphs.push_back({0, params});
-      cur_subgraphs++;
     }
 
     sketch_creation_lock.unlock();

@@ -22,6 +22,7 @@ EdgeStore::~EdgeStore() {
 
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                                    const std::vector<node_id_t> &dst_vertices) {
+  std::cerr << "insert_adj_edges(" << src << ", " << dst_vertices.size() << ")" << std::endl;
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
   {
@@ -41,7 +42,9 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       }
     }
   }
+  std::cerr << "Adding = " << edges_delta << "edges to edge_store" << std::endl;
   num_edges += edges_delta;
+  std::cerr << num_edges << std::endl;
 
   if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
@@ -54,6 +57,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
 
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                               const std::vector<SubgraphTaggedUpdate> &dst_data) {
+  std::cerr << "insert_adj_edges(" << src << ", " << dst_vertices.size() << ")" << std::endl;
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
   {
@@ -71,7 +75,9 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       }
     }
   }
+  std::cerr << "Adding = " << edges_delta << "edges to edge_store" << std::endl;
   num_edges += edges_delta;
+  std::cerr << num_edges << std::endl;
 
   if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();

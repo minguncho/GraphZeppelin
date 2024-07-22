@@ -19,12 +19,10 @@ struct SubgraphTaggedUpdate {
   node_id_t dst;       // destination vertex of edge
 
   bool operator<(const SubgraphTaggedUpdate& oth) const {
-    if (subgraph < oth.subgraph) return true;
-    return dst < oth.dst;
-  }
+    if (subgraph == oth.subgraph)
+      return dst < oth.dst;
 
-  bool operator==(const SubgraphTaggedUpdate& oth) const {
-    return dst == oth.dst;
+    return subgraph < oth.subgraph;
   }
 };
 

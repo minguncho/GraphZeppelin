@@ -157,7 +157,6 @@ int main(int argc, char **argv) {
 
   auto flush_start = std::chrono::steady_clock::now();
   driver.prep_query(KSPANNINGFORESTS);
-  cudaDeviceSynchronize();
   mc_gpu_alg.apply_flush_updates();
   // Re-measure flush_end to include time taken for applying delta sketches from flushing
   auto flush_end = std::chrono::steady_clock::now();

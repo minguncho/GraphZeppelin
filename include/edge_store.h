@@ -29,8 +29,9 @@ class EdgeStore {
   std::mutex contract_lock;
 
   std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);
-  TaggedUpdateBatch vertex_advance_subgraph();
   void check_if_too_big();
+
+  void verify_contract_complete();
  public:
 
   // Constructor
@@ -47,6 +48,10 @@ class EdgeStore {
   TaggedUpdateBatch insert_adj_edges(node_id_t src,
                                      const std::vector<SubgraphTaggedUpdate>& dst_data);
 
+  // contract vertex data by removing all updates bound for lower subgraphs than the store 
+  // is responsible for
+  TaggedUpdateBatch vertex_advance_subgraph();
+
   // Get methods
   size_t get_num_edges() {
     return num_edges;
@@ -58,4 +63,5 @@ class EdgeStore {
     return cur_subgraph;
   }
   std::vector<Edge> get_edges();
+  bool contract_in_progress() { return true_min_subgraph < cur_subgraph; }
 };

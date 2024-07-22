@@ -826,7 +826,7 @@ SpanningForest MCSketchAlg::get_k_spanning_forest(int graph_id) {
   ConnectedComponents cc(num_vertices, dsu);
 
   // Note: Get num_cc for spanning forest
-  std::cout << "    round = " << last_query_rounds << " cc size = " << cc.size() << "\n";
+  std::cerr << "    round = " << last_query_rounds << " cc size = " << cc.size() << "\n";
 
   // Note: Turning these off for now for performance, but turn it back on if run into OutOfSamplesException 
   // get ready for ingesting more from the stream by resetting the sketches sample state

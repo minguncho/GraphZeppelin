@@ -165,9 +165,18 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
 }
 
-// TODO: What happens if we get to this function and streams are not completed yet?
-//       Or is it enforced somehow that we only call after streams done?
 void MCGPUSketchAlg::apply_flush_updates() {
+  // first ensure that all pending contractions are moved out of the edge store.
+  while (edge_store.contract_in_progress()) {
+    TaggedUpdateBatch upds = edge_store.vertex_advance_subgraph();
+
+    if (upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+  }
+
+  // ensure streams have finished applying updates
+  cudaDeviceSynchronize();
+
+  // apply all outstanding deltas
   for (int stream_id = 0; stream_id < num_host_threads * stream_multiplier; stream_id++) {
     if(streams[stream_id].delta_applied == 0) {
       for (int graph_id = 0; graph_id < streams[stream_id].num_graphs; graph_id++) {

@@ -452,6 +452,8 @@ bool MCSketchAlg::perform_k_boruvka_round(const size_t cur_round,
                                         const std::vector<MergeInstr> &merge_instr,
                                         std::vector<GlobalMergeData> &global_merges,
                                         int graph_id) {
+  std::cerr << "perform_k_boruvka_round()" << std::endl;
+
   if (cur_round == 0) {
     return run_k_round_zero(graph_id);
   }
@@ -719,6 +721,8 @@ void MCSketchAlg::boruvka_emulation() {
 }
 
 void MCSketchAlg::k_boruvka_emulation(int graph_id) {
+  std::cerr << "k_boruvka_emulation()" << std::endl;
+
   // auto start = std::chrono::steady_clock::now();
   update_locked = true;
 

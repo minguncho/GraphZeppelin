@@ -34,10 +34,16 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     for (auto dst : dst_vertices) {
       auto idx = concat_pairing_fn(src, dst);
       SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
+      std::cerr << data.subgraph << ", " << data.dst << std::endl;
       if (!adjlist[src].insert(data).second) {
-        adjlist[src].erase(data);  // Current edge already exist, so delete
+        std::cerr << " DUPLICATE" << std::endl;
+        // Current edge already exist, so delete
+        if (adjlist[src].erase(data) == 0)  {
+          std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
+        }
         edges_delta--;
       } else {
+        std::cerr << " NEW EDGE" << std::endl;
         edges_delta++;
       }
     }
@@ -57,7 +63,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
 
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                               const std::vector<SubgraphTaggedUpdate> &dst_data) {
-  std::cerr << "insert_adj_edges(" << src << ", " << dst_vertices.size() << ")" << std::endl;
+  std::cerr << "insert_adj_edges(" << src << ", " << dst_data.size() << ")" << std::endl;
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
   {
@@ -67,10 +73,16 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     }
 
     for (auto data : dst_data) {
+      std::cerr << data.subgraph << ", " << data.dst << std::endl;
       if (!adjlist[src].insert(data).second) {
-        adjlist[src].erase(data);  // Current edge already exist, so delete
+        std::cerr << " DUPLICATE" << std::endl;
+        // Current edge already exist, so delete
+        if (adjlist[src].erase(data) == 0)  {
+          std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
+        }
         edges_delta--;
       } else {
+        std::cerr << " NEW EDGE" << std::endl;
         edges_delta++;
       }
     }
@@ -78,6 +90,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   std::cerr << "Adding = " << edges_delta << "edges to edge_store" << std::endl;
   num_edges += edges_delta;
   std::cerr << num_edges << std::endl;
+  exit(EXIT_FAILURE);
 
   if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();

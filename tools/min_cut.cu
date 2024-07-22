@@ -203,6 +203,8 @@ int main(int argc, char **argv) {
         SpanningForest spanningForest = mc_gpu_alg.get_k_spanning_forest(graph_id);
         sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
 
+        std::cerr << "Query done" << std::endl;
+
         // Insert sampled edges from spanningForest to spanningForests
         for (auto edge : spanningForest.get_edges()) {
           spanningForests.push_back(edge);
@@ -213,10 +215,14 @@ int main(int argc, char **argv) {
         driver.trim_spanning_forest(spanningForest.get_edges());
         trim_reading_time += std::chrono::steady_clock::now() - trim_reading_start;
 
+        std::cerr << "Trimming done" << std::endl;
+
         // Flush sketch updates
         auto trim_flushing_start = std::chrono::steady_clock::now();
         driver.prep_query(KSPANNINGFORESTS);
         trim_flushing_time += std::chrono::steady_clock::now() - trim_flushing_start;
+
+        std::cerr << "Prep query done" << std::endl;
 
         // Verify sampled edges from spanning forest
         for (auto& edge : spanningForest.get_edges()) {
@@ -228,6 +234,8 @@ int main(int argc, char **argv) {
             exit(EXIT_FAILURE);
           }
         }
+
+        std::cerr << "Spanning forest " << k_id << " done" << std::endl;
       }
     }
 

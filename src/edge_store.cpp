@@ -46,7 +46,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     }
   }
   num_edges += edges_delta;
-  std::cerr << num_edges << std::endl;
 
   if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
@@ -81,7 +80,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     }
   }
   num_edges += edges_delta;
-  std::cerr << num_edges << std::endl;
 
   if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();

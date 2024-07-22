@@ -82,7 +82,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     // double check to ensure no one else performed the allocation 
     if (edge_store_subgraphs > cur_subgraphs) {
-      create_sketch_graph(cur_subgraphs++);
+      create_sketch_graph(cur_subgraphs);
 
       CudaUpdateParams* params;
       // TODO: Is this malloc necessary?
@@ -91,6 +91,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
          num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
          num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
       subgraphs.push_back({0, params});
+      cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
 
     sketch_creation_lock.unlock();

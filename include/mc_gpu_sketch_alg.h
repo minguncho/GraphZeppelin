@@ -42,7 +42,6 @@ private:
   
   // Number of subgraphs in sketch representation
   int max_sketch_graphs; // Max. number of subgraphs that can be in sketch graphs
-  std::atomic<int> num_sketch_graphs;
 
   // sketch subgraphs
   std::vector<SketchSubgraph> subgraphs;
@@ -104,9 +103,7 @@ public:
 
    num_subgraphs = _num_subgraphs;
    cur_subgraphs = 0;
-
    max_sketch_graphs = _max_sketch_graphs;
-   num_sketch_graphs = 0;
 
    // Extract sketchParams variables
    num_samples = sketchParams.num_samples;
@@ -179,5 +176,5 @@ public:
   }
 
   std::vector<Edge> get_adjlist_spanning_forests();
-  int get_num_sketch_graphs() { return num_sketch_graphs; }
+  int get_num_sketch_graphs() { return cur_subgraphs; }
 };

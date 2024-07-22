@@ -140,6 +140,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
   do {
     src = needs_contraction.fetch_add(1);
     if (src == num_vertices - 1) {
+      std::lock_guard<std::mutex> lk(contract_lock);
       ++true_min_subgraph;
     }
 
@@ -164,6 +165,8 @@ void EdgeStore::check_if_too_big() {
     // another thread already started contraction
     return;
   }
+
+  std::cerr << "true_min = " << true_min_subgraph << " cur = " << cur_subgraph << std::endl;
 
   cur_subgraph++;
   needs_contraction = 0;

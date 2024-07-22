@@ -75,6 +75,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   if (edge_store_subgraphs > cur_subgraphs) {
     if (cur_subgraphs < edge_store_subgraphs - 1) {
       std::cerr << "ERROR: Too many outstanding subgraph allocations. What is happening?" << std::endl;
+      std::cerr << "cur_subgraphs = " << cur_subgraphs << " es_subgraphs = " << edge_store_subgraphs << std::endl;
       exit(EXIT_FAILURE);
     }
 

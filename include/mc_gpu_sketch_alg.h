@@ -87,72 +87,72 @@ public:
                 size_t _sketch_bytes, CCAlgConfiguration config)
      : MCSketchAlg(num_vertices, seed, _max_sketch_graphs, config),
        edge_store(seed, num_vertices, _sketch_bytes, _num_subgraphs) {
-   // Start timer for initializing
-   auto init_start = std::chrono::steady_clock::now();
+    // Start timer for initializing
+    auto init_start = std::chrono::steady_clock::now();
 
-   sketchSeed = seed;
-   num_nodes = num_vertices;
-   k = _k;
-   sketches_factor = config.get_sketches_factor();
-   num_host_threads = num_threads;
-   num_reader_threads = _num_reader_threads;
+    sketchSeed = seed;
+    num_nodes = num_vertices;
+    k = _k;
+    sketches_factor = config.get_sketches_factor();
+    num_host_threads = num_threads;
+    num_reader_threads = _num_reader_threads;
 
-   num_device_threads = 1024;
-   num_device_blocks = k;  // Change this value based on dataset <-- Come up with formula to compute
+    num_device_threads = 1024;
+    num_device_blocks = k;  // Change this value based on dataset <-- Come up with formula to compute
                            // this automatically
 
-   num_subgraphs = _num_subgraphs;
-   cur_subgraphs = 0;
-   max_sketch_graphs = _max_sketch_graphs;
+    num_subgraphs = _num_subgraphs;
+    cur_subgraphs = 0;
+    max_sketch_graphs = _max_sketch_graphs;
 
-   // Extract sketchParams variables
-   num_samples = sketchParams.num_samples;
-   num_columns = sketchParams.num_columns;
-   bkt_per_col = sketchParams.bkt_per_col;
-   num_buckets = sketchParams.num_buckets;
+    // Extract sketchParams variables
+    num_samples = sketchParams.num_samples;
+    num_columns = sketchParams.num_columns;
+    bkt_per_col = sketchParams.bkt_per_col;
+    num_buckets = sketchParams.num_buckets;
 
-   std::cout << "num_samples: " << num_samples << "\n";
-   std::cout << "num_buckets: " << num_buckets << "\n";
-   std::cout << "num_columns: " << num_columns << "\n";
-   std::cout << "bkt_per_col: " << bkt_per_col << "\n";
+    std::cout << "num_samples: " << num_samples << "\n";
+    std::cout << "num_buckets: " << num_buckets << "\n";
+    std::cout << "num_columns: " << num_columns << "\n";
+    std::cout << "bkt_per_col: " << bkt_per_col << "\n";
 
-   // Initialize delta_buckets
-   delta_buckets = new Bucket[num_buckets * num_host_threads];
+    // Initialize delta_buckets
+    delta_buckets = new Bucket[num_buckets * num_host_threads];
 
-   // Create a bigger batch size to apply edge updates when subgraph is turning into sketch
-   // representation
-   batch_size = get_desired_updates_per_batch();
+    // Create a bigger batch size to apply edge updates when subgraph is turning into sketch
+    // representation
+    batch_size = get_desired_updates_per_batch();
 
-   if (max_sketch_graphs > 0) {  // If max_sketch_graphs is 0, there will never be any sketch graphs
-     int device_id = cudaGetDevice(&device_id);
-     int device_count = 0;
-     cudaGetDeviceCount(&device_count);
-     std::cout << "CUDA Device Count: " << device_count << "\n";
-     std::cout << "CUDA Device ID: " << device_id << "\n";
+    if (max_sketch_graphs > 0) {  // If max_sketch_graphs is 0, there will never be any sketch graphs
+      int device_id = cudaGetDevice(&device_id);
+      int device_count = 0;
+      cudaGetDeviceCount(&device_count);
+      std::cout << "CUDA Device Count: " << device_count << "\n";
+      std::cout << "CUDA Device ID: " << device_id << "\n";
 
-     // Calculate the num_buckets assigned to the last thread block
-     // size_t num_last_tb_buckets =
-     //     (subgraphs[0].cudaUpdateParams->num_tb_columns[num_device_blocks - 1] * bkt_per_col) + 1;
+      // Calculate the num_buckets assigned to the last thread block
+      // size_t num_last_tb_buckets =
+      //     (subgraphs[0].cudaUpdateParams->num_tb_columns[num_device_blocks - 1] * bkt_per_col) + 1;
 
-     // // Set maxBytes for GPU kernel's shared memory
-     // size_t maxBytes =
-     //     (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));
-     // cudaKernel.updateSharedMemory(maxBytes);
-     // std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
-   }
+      // // Set maxBytes for GPU kernel's shared memory
+      // size_t maxBytes =
+      //     (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));
+      // cudaKernel.updateSharedMemory(maxBytes);
+      // std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
+    }
 
-   // Initialize CUDA Streams
-   for (int i = 0; i < num_host_threads * stream_multiplier; i++) {
-     cudaStream_t stream;
+    // Initialize CUDA Streams
+    for (int i = 0; i < num_host_threads * stream_multiplier; i++) {
+      cudaStream_t stream;
 
-     cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-     streams.push_back({stream, 1, -1, -1});
-   }
+      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+      streams.push_back({stream, 1, -1, -1});
+    }
 
-   std::cout << "Finished MCGPUSketchAlg's Initialization" << std::endl;
-   std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
-   std::cout << "MCGPUSketchAlg's Initialization Duration: " << init_time.count() << std::endl;
- }
+    std::cout << "Finished MCGPUSketchAlg's Initialization" << std::endl;
+    std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
+    std::cout << "MCGPUSketchAlg's Initialization Duration: " << init_time.count() << std::endl;
+  }
 
   /**
    * Update all the sketches for a node, given a batch of updates.

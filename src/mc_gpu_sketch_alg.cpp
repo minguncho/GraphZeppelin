@@ -12,7 +12,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
   while(true) {
     int cur_stream = stream_id + stream_offset;
     if (cudaStreamQuery(streams[cur_stream].stream) == cudaSuccess) {
-      std::cerr << "Found a delta to apply. cur_stream = " << cur_stream << " ng = " << streams[cur_stream].num_graphs << std::endl;
+      std::cerr << thr_id << " Found a delta to apply. cur_stream = " << cur_stream << " ng = " << streams[cur_stream].num_graphs << " src = " << streams[cur_stream].src_vertex << std::endl;
 
       // CUDA Stream is available, check if it has any delta sketch
       if(streams[cur_stream].delta_applied == 0) {
@@ -126,8 +126,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     cudaMemcpyAsync(&cudaUpdateParams->h_bucket_c[stream_id * num_buckets], &cudaUpdateParams->d_bucket_c[stream_id * num_buckets], num_buckets * sizeof(vec_hash_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
   }
 
-  std::cerr << "Kernel Launched on stream: " << stream_id << std::endl;
-  std::cerr << "Stream multiplier: " << stream_multiplier << std::endl;
+  std::cerr << thr_id << " Kernel Launched on stream: " << stream_id << std::endl;
 }
 
 void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,

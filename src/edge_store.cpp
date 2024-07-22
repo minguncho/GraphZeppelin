@@ -131,11 +131,6 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   num_edges += edges_delta;
   std::cerr << edges_delta * - 1 << " updates deleted ";
 
-
-  if (src == num_vertices - 1) {
-    true_min_subgraph++;
-  }
-
   std::cerr << ret.size() << " updates returned" << std::endl;
   return ret;
 }
@@ -144,7 +139,11 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
   node_id_t src = 0;
   do {
     src = needs_contraction.fetch_add(1);
-    if (src > num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
+    if (src == num_vertices - 1) {
+      ++true_min_subgraph;
+    }
+
+    if (src >= num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
   } while (!vertex_contracted[src]);
 
   std::lock_guard<std::mutex> lk(adj_mutex[src]);

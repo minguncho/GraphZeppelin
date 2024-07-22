@@ -168,9 +168,9 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 void MCGPUSketchAlg::apply_flush_updates() {
   // first ensure that all pending contractions are moved out of the edge store.
   while (edge_store.contract_in_progress()) {
-    TaggedUpdateBatch upds = edge_store.vertex_advance_subgraph();
+    TaggedUpdateBatch more_upds = edge_store.vertex_advance_subgraph();
 
-    if (upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+    if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds);
   }
 
   // ensure streams have finished applying updates

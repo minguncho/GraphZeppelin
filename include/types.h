@@ -15,12 +15,16 @@ struct GraphUpdate {
 };
 
 struct SubgraphTaggedUpdate {
-  node_id_t subgraph;  // highest index subgraph the edge maps to
+  node_id_t subgraph;  // highest index subgraph the edge maps to (same src, dst -> same subgraph)
   node_id_t dst;       // destination vertex of edge
 
   bool operator<(const SubgraphTaggedUpdate& oth) const {
     if (subgraph < oth.subgraph) return true;
     return dst < oth.dst;
+  }
+
+  bool operator==(const SubgraphTaggedUpdate& oth) const {
+    return dst == oth.dst;
   }
 };
 

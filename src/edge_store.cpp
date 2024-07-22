@@ -103,9 +103,22 @@ std::vector<Edge> EdgeStore::get_edges() {
   return ret;
 }
 
+void EdgeStore::verify_contract_complete() {
+  for (size_t i = 0; i < num_vertices; i++) {
+    std::lock_guard<std::mutex> lk(adj_mutex[src]);
+    auto it = adjlist[src].begin();
+    if (it->subgraph < cur_subgraph) {
+      std::cerr << "ERROR: Found " << it->subgraph << ", " << it->dst << " which should have been deleted by contraction to " << cur_subgraph << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+  std::cerr << "Contraction verified!" << std::endl;
+}
+
 // the thread MUST hold the lock on src before calling this function
 std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   std::cerr << "Contracting vertex: " << src << " ";
+  vertex_contracted[src] = true;
 
   std::vector<SubgraphTaggedUpdate> ret;
   if (adjlist[src].size() == 0) {
@@ -141,11 +154,13 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
     src = needs_contraction.fetch_add(1);
     if (src == num_vertices - 1) {
       std::lock_guard<std::mutex> lk(contract_lock);
+      std::cerr << "Got source = " << src << " incrementing true_min_subgraph" << std::endl;
+      verify_contract_complete();
       ++true_min_subgraph;
     }
 
     if (src >= num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
-  } while (!vertex_contracted[src]);
+  } while (vertex_contracted[src]);
 
   std::lock_guard<std::mutex> lk(adj_mutex[src]);
   return {src, vertex_contract(src)};

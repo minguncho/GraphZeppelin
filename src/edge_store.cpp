@@ -180,14 +180,16 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
   node_id_t src = 0;
   do {
     src = needs_contraction.fetch_add(1);
-    if (src == num_vertices - 1) {
-      std::lock_guard<std::mutex> lk(contract_lock);
-      std::cerr << "Got source = " << src << " incrementing true_min_subgraph" << std::endl;
-      verify_contract_complete();
-      ++true_min_subgraph;
+    
+    if (src >= num_vertices) {
+      if (src == num_vertices) {
+        std::lock_guard<std::mutex> lk(contract_lock);
+        std::cerr << "Got source = " << src << " incrementing true_min_subgraph" << std::endl;
+        verify_contract_complete();
+        ++true_min_subgraph;
+      }
+      return {0, std::vector<SubgraphTaggedUpdate>()};
     }
-
-    if (src >= num_vertices) return {0, std::vector<SubgraphTaggedUpdate>()};
   } while (vertex_contracted[src]);
 
   std::lock_guard<std::mutex> lk(adj_mutex[src]);

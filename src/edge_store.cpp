@@ -29,6 +29,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                                    const std::vector<node_id_t> &dst_vertices) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
+  num_inserted += dst_vertices.size();
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     if (true_min_subgraph < cur_subgraph && !vertex_contracted[src]) {
@@ -43,7 +44,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
         ret.push_back(data);
         num_returned++;
       } else {
-        num_inserted++;
         if (!adjlist[src].insert(data).second) {
           // Current edge already exist, so delete
           if (adjlist[src].erase(data) == 0) {
@@ -72,6 +72,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                               const std::vector<SubgraphTaggedUpdate> &dst_data) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
+  num_inserted += dst_data.size();
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     if (true_min_subgraph < cur_subgraph && !vertex_contracted[src]) {
@@ -83,7 +84,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
         ret.push_back(data);
         num_returned++;
       } else {
-        num_inserted++;
         if (!adjlist[src].insert(data).second) {
           // Current edge already exist, so delete
           if (adjlist[src].erase(data) == 0) {
@@ -167,6 +167,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   std::cerr << edges_delta * - 1 << " updates deleted ";
 
   std::cerr << ret.size() << " updates returned" << std::endl;
+  num_returned += ret.size();
   return ret;
 }
 

@@ -33,27 +33,33 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     for (auto dst : dst_vertices) {
       auto idx = concat_pairing_fn(src, dst);
       SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
-      if (!adjlist[src].insert(data).second) {
-        // Current edge already exist, so delete
-        if (adjlist[src].erase(data) == 0)  {
-          std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
-          exit(EXIT_FAILURE);
-        }
-        edges_delta--;
+
+      if (data.subgraph < cur_subgraph) {
+        ret.push_back(data);
       } else {
-        edges_delta++;
+        if (!adjlist[src].insert(data).second) {
+          // Current edge already exist, so delete
+          if (adjlist[src].erase(data) == 0)  {
+            std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
+            exit(EXIT_FAILURE);
+          }
+          edges_delta--;
+        } else {
+          edges_delta++;
+        }
       }
     }
   }
   num_edges += edges_delta;
 
-  if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
+  if (ret.size() > 0) {
+    return {src, ret};
+  }
+  else if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
   } else {
     check_if_too_big();
   }
-
-  return {src, ret};
 }
 
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
@@ -67,27 +73,32 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     }
 
     for (auto data : dst_data) {
-      if (!adjlist[src].insert(data).second) {
-        // Current edge already exist, so delete
-        if (adjlist[src].erase(data) == 0)  {
-          std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
-          exit(EXIT_FAILURE);
-        }
-        edges_delta--;
+      if (data.subgraph < cur_subgraph) {
+        ret.push_back(data);
       } else {
-        edges_delta++;
+        if (!adjlist[src].insert(data).second) {
+          // Current edge already exist, so delete
+          if (adjlist[src].erase(data) == 0)  {
+            std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
+            exit(EXIT_FAILURE);
+          }
+          edges_delta--;
+        } else {
+          edges_delta++;
+        }
       }
     }
   }
   num_edges += edges_delta;
 
-  if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
+  if (ret.size() > 0) {
+    return {src, ret};
+  }
+  else if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
     return vertex_advance_subgraph();
   } else {
     check_if_too_big();
   }
-
-  return {src, ret};
 }
 
 // IMPORTANT: We must have completed any pending contractions before we call this function
@@ -105,8 +116,10 @@ std::vector<Edge> EdgeStore::get_edges() {
 
 void EdgeStore::verify_contract_complete() {
   for (size_t i = 0; i < num_vertices; i++) {
-    std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    auto it = adjlist[src].begin();
+    std::lock_guard<std::mutex> lk(adj_mutex[i]);
+    if (adjlist[i].size() == 0) continue;
+
+    auto it = adjlist[i].begin();
     if (it->subgraph < cur_subgraph) {
       std::cerr << "ERROR: Found " << it->subgraph << ", " << it->dst << " which should have been deleted by contraction to " << cur_subgraph << std::endl;
       exit(EXIT_FAILURE);

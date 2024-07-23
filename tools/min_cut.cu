@@ -219,6 +219,7 @@ int main(int argc, char **argv) {
         // Flush sketch updates
         auto trim_flushing_start = std::chrono::steady_clock::now();
         driver.prep_query(KSPANNINGFORESTS);
+        mc_gpu_alg.apply_flush_updates();
         trim_flushing_time += std::chrono::steady_clock::now() - trim_flushing_start;
 
         std::cerr << "Prep query done" << std::endl;

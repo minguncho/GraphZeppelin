@@ -158,7 +158,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
-  std::cout << "Number of updates seen = " << num_updates_seen << std::endl;
+  std::cerr << "Number of updates seen = " << num_updates_seen << std::endl;
 
   // first ensure that all pending contractions are moved out of the edge store.
   while (edge_store.contract_in_progress()) {
@@ -166,8 +166,6 @@ void MCGPUSketchAlg::apply_flush_updates() {
 
     if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds);
   }
-
-  edge_store.verify_contract_complete();
 
   // ensure streams have finished applying updates
   cudaDeviceSynchronize();

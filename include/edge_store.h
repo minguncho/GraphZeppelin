@@ -36,6 +36,8 @@ class EdgeStore {
 
   std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);
   void check_if_too_big();
+
+  void verify_contract_complete(); // TODO: REMOVE CALLS TO THIS DEBUG FUNCTION LATER
  public:
 
   // Constructor
@@ -55,7 +57,6 @@ class EdgeStore {
   // contract vertex data by removing all updates bound for lower subgraphs than the store 
   // is responsible for
   TaggedUpdateBatch vertex_advance_subgraph();
-  void verify_contract_complete(); // TODO: MAKE THIS PRIVATE LATER
 
   // Get methods
   size_t get_num_edges() {

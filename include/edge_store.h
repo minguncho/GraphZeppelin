@@ -22,6 +22,11 @@ class EdgeStore {
 
   std::vector<bool> vertex_contracted;
 
+  std::atomic<int> num_inserted;
+  std::atomic<int> num_duplicate;
+  std::atomic<int> num_returned;
+  std::atomic<int> num_contracted;
+
   size_t sketch_bytes;        // Bytes of sketch graph
   static constexpr size_t store_edge_bytes = sizeof(SubgraphTaggedUpdate);  // Bytes of one edge
 
@@ -64,4 +69,11 @@ class EdgeStore {
   }
   std::vector<Edge> get_edges();
   bool contract_in_progress() { return true_min_subgraph < cur_subgraph; }
+
+  void stats() {
+    std::cout << "num_inserted = " << num_inserted << std::endl;
+    std::cout << "num_duplicate = " << num_duplicate << std::endl;
+    std::cout << "num_returned = " << num_returned << std::endl;
+    std::cout << "num_contracted = " << num_contracted << std::endl;
+  }
 };

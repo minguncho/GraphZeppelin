@@ -201,6 +201,8 @@ void MCGPUSketchAlg::apply_flush_updates() {
       streams[stream_id].num_graphs = -1;
     }
   }
+
+  edge_store.stats();
 }
 
 std::vector<Edge> MCGPUSketchAlg::get_adjlist_spanning_forests() {

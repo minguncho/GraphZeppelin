@@ -82,7 +82,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
 
     for (auto data : dst_data) {
       if (data.subgraph < cur_subgraph) {
-        std::cout << "WARNING: Found an edge that shouldn't be here" << std::endl;
         ret.push_back(data);
         num_returned++;
       } else {
@@ -134,7 +133,7 @@ void EdgeStore::verify_contract_complete() {
       exit(EXIT_FAILURE);
     }
   }
-  std::cout << "Contraction verified!" << std::endl;
+  std::cerr << "Contraction verified!" << std::endl;
   stats();
 }
 
@@ -145,11 +144,9 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   if (vertex_contracted[src])
     return ret;
 
-  std::cerr << "Contracting vertex: " << src << " ";
   vertex_contracted[src] = true;
 
   if (adjlist[src].size() == 0) {
-    std::cerr << "empty" << std::endl;
     return ret;
   }
 
@@ -171,9 +168,6 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   // now perform the deletion
   adjlist[src].erase(it_begin, delete_it);
   num_edges += edges_delta;
-  std::cerr << edges_delta * - 1 << " updates deleted ";
-
-  std::cerr << ret.size() << " updates returned" << std::endl;
   num_returned += ret.size();
   return ret;
 }
@@ -186,7 +180,6 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
     if (src >= num_vertices) {
       if (src == num_vertices) {
         std::lock_guard<std::mutex> lk(contract_lock);
-        std::cerr << "Got source = " << src << " incrementing true_min_subgraph" << std::endl;
         verify_contract_complete();
         ++true_min_subgraph;
       }
@@ -212,18 +205,16 @@ void EdgeStore::check_if_too_big() {
     return;
   }
 
-  std::cerr << "true_min = " << true_min_subgraph << " cur = " << cur_subgraph << std::endl;
-
   for (node_id_t i = 0; i < num_vertices; i++) {
     vertex_contracted[i] = false;
   }
   needs_contraction = 0;
   cur_subgraph++;
 
-  std::cout << "EdgeStore: Contracting to subgraphs " << cur_subgraph << " and above" << std::endl;
-  std::cout << "    num_edges = " << num_edges << std::endl;
-  std::cout << "    store_edge_bytes = " << store_edge_bytes << std::endl; 
-  std::cout << "    sketch_bytes = " << sketch_bytes << std::endl;
+  std::cerr << "EdgeStore: Contracting to subgraphs " << cur_subgraph << " and above" << std::endl;
+  std::cerr << "    num_edges = " << num_edges << std::endl;
+  std::cerr << "    store_edge_bytes = " << store_edge_bytes << std::endl; 
+  std::cerr << "    sketch_bytes = " << sketch_bytes << std::endl;
 
   stats();
 }

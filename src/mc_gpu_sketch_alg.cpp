@@ -5,14 +5,11 @@
 #include <vector>
 
 size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
-  size_t loop = 0;
-
   int stream_id = thr_id * stream_multiplier;
   size_t stream_offset = 0;
   while(true) {
     int cur_stream = stream_id + stream_offset;
     if (cudaStreamQuery(streams[cur_stream].stream) == cudaSuccess) {
-      std::cerr << thr_id << " Found a delta to apply. cur_stream = " << cur_stream << " ng = " << streams[cur_stream].num_graphs << " src = " << streams[cur_stream].src_vertex << std::endl;
 
       // CUDA Stream is available, check if it has any delta sketch
       if(streams[cur_stream].delta_applied == 0) {
@@ -31,13 +28,11 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
           }
 
           // Apply the delta sketch
-          std::cerr << "applying delta to graph = " << graph_id << " vertex = " << prev_src << std::endl;
           apply_raw_buckets_update((graph_id * num_nodes) + prev_src, &delta_buckets[bucket_offset]);
         }
         streams[cur_stream].delta_applied = 1;
         streams[cur_stream].src_vertex = -1;
         streams[cur_stream].num_graphs = -1;
-        std::cerr << "Finished applying delta" << std::endl;
       }
       else {
         if (streams[cur_stream].src_vertex != -1) {
@@ -49,9 +44,6 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
     stream_offset++;
     if (stream_offset == stream_multiplier) {
         stream_offset = 0;
-        loop++;
-        if (loop % 1000000 == 0)
-          std::cerr << "Looped on unfinished streams!" << std::endl;
     }
   }
   return stream_id + stream_offset;
@@ -126,8 +118,6 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     cudaMemcpyAsync(&cudaUpdateParams->h_bucket_a[stream_id * num_buckets], &cudaUpdateParams->d_bucket_a[stream_id * num_buckets], num_buckets * sizeof(vec_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
     cudaMemcpyAsync(&cudaUpdateParams->h_bucket_c[stream_id * num_buckets], &cudaUpdateParams->d_bucket_c[stream_id * num_buckets], num_buckets * sizeof(vec_hash_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
   }
-
-  std::cerr << thr_id << " Kernel Launched on stream: " << stream_id << std::endl;
 }
 
 void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,

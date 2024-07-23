@@ -39,6 +39,8 @@ private:
 
   // Current number of initialized sketch subgraphs. Starts at 0.
   std::atomic<node_id_t> cur_subgraphs;
+
+  std::atomic<size_t> num_updates_seen;
   
   // Number of subgraphs in sketch representation
   int max_sketch_graphs; // Max. number of subgraphs that can be in sketch graphs
@@ -90,6 +92,7 @@ public:
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
 
+    num_updates_seen = 0;
     sketchSeed = seed;
     num_nodes = num_vertices;
     k = _k;

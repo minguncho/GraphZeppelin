@@ -134,6 +134,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
                                      const std::vector<node_id_t> &dst_vertices) {
   if (MCSketchAlg::get_update_locked()) throw UpdateLockedException();
 
+  num_updates_seen += dst_vertices.size();
+
   // We only have an adjacency list so just directly insert
   if (cur_subgraphs == 0) {
     TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices);
@@ -167,6 +169,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
+  std::cout << "Number of updates seen = " << num_updates_seen << std::endl;
+
   // first ensure that all pending contractions are moved out of the edge store.
   while (edge_store.contract_in_progress()) {
     TaggedUpdateBatch more_upds = edge_store.vertex_advance_subgraph();

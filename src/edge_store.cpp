@@ -133,10 +133,7 @@ void EdgeStore::verify_contract_complete() {
     }
   }
   std::cout << "Contraction verified!" << std::endl;
-  std::cout << "  num_inserted = " << num_inserted << std::endl;
-  std::cout << "  num_duplicate = " << num_duplicate << std::endl;
-  std::cout << "  num_returned = " << num_returned << std::endl;
-  std::cout << "  num_contracted = " << num_contracted << std::endl;
+  stats();
 }
 
 // the thread MUST hold the lock on src before calling this function
@@ -224,8 +221,5 @@ void EdgeStore::check_if_too_big() {
   std::cout << "    store_edge_bytes = " << store_edge_bytes << std::endl; 
   std::cout << "    sketch_bytes = " << sketch_bytes << std::endl;
 
-  std::cout << "num_inserted = " << num_inserted << std::endl;
-  std::cout << "num_duplicate = " << num_duplicate << std::endl;
-  std::cout << "num_returned = " << num_returned << std::endl;
-  std::cout << "num_contracted = " << num_contracted << std::endl;
+  stats();
 }

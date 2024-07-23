@@ -71,9 +71,16 @@ class EdgeStore {
   bool contract_in_progress() { return true_min_subgraph < cur_subgraph; }
 
   void stats() {
-    std::cout << "num_inserted = " << num_inserted << std::endl;
-    std::cout << "num_duplicate = " << num_duplicate << std::endl;
-    std::cout << "num_returned = " << num_returned << std::endl;
-    std::cout << "num_contracted = " << num_contracted << std::endl;
+    std::cout << "== EdgeStore Statistics ==" << std::endl;
+    std::cout << "  num_inserted = " << num_inserted << std::endl;
+    std::cout << "  num_duplicate = " << num_duplicate << std::endl;
+    std::cout << "  num_returned = " << num_returned << std::endl;
+    std::cout << "  num_contracted = " << num_contracted << std::endl;
+
+    size_t sum = 0;
+    for (node_id_t i = 0; i < num_vertices; i++) {
+      sum += adjlist[i].size();
+    }
+    std::cout << "  Total number of edges = " << sum << std::endl;
   }
 };

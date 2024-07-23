@@ -146,20 +146,17 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // TODO: This memory allocation is sad
   std::vector<SubgraphTaggedUpdate> store_edges;
   std::vector<SubgraphTaggedUpdate> sketch_edges;
-  size_t max_subgraph = 0;
 
   for (vec_t i = 0; i < dst_vertices.size(); i++) {
     // Determine the depth of current edge
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_vertices[i]));
     size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, 0, num_subgraphs-1);
-    max_subgraph = std::max(subgraph, max_subgraph);
 
-    if (subgraph > cur_subgraphs) {
+    if (subgraph >= cur_subgraphs) {
       // Adj. list
       store_edges.push_back({subgraph, dst_vertices[i]});
     }
-    if (cur_subgraphs > 0)
-      sketch_edges.push_back({subgraph, dst_vertices[i]});
+    sketch_edges.push_back({subgraph, dst_vertices[i]});
   }
 
   // Perform adjacency list updates

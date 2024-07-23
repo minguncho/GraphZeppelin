@@ -174,6 +174,8 @@ void MCGPUSketchAlg::apply_flush_updates() {
     if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds);
   }
 
+  edge_store.verify_contract_complete();
+
   // ensure streams have finished applying updates
   cudaDeviceSynchronize();
 

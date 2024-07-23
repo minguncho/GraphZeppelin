@@ -111,7 +111,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
 // IMPORTANT: We must have completed any pending contractions before we call this function
 std::vector<Edge> EdgeStore::get_edges() {
   std::vector<Edge> ret;
-  ret.resize(num_edges);
+  ret.reserve(num_edges);
 
   for (node_id_t src = 0; src < num_vertices; src++) {
     for (auto data : adjlist[src])
@@ -151,7 +151,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
     return ret;
   }
 
-  ret.resize(adjlist[src].size());
+  ret.reserve(adjlist[src].size());
   int edges_delta = 0;
   auto it_begin = adjlist[src].begin();
   auto it = it_begin;

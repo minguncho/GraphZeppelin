@@ -155,9 +155,9 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     if (subgraph > cur_subgraphs) {
       // Adj. list
       store_edges.push_back({subgraph, dst_vertices[i]});
-    } else {
-      sketch_edges.push_back({subgraph, dst_vertices[i]});
     }
+    if (cur_subgraphs > 0)
+      sketch_edges.push_back({subgraph, dst_vertices[i]});
   }
 
   // Perform adjacency list updates

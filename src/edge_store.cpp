@@ -10,8 +10,8 @@ EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, s
       num_vertices(num_vertices),
       num_subgraphs(num_subgraphs),
       adjlist(num_vertices),
-      sketch_bytes(sketch_bytes),
-      vertex_contracted(num_vertices, false) {
+      vertex_contracted(num_vertices, false),
+      sketch_bytes(sketch_bytes) {
   num_edges = 0;
   adj_mutex = new std::mutex[num_vertices];
 }
@@ -39,7 +39,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       } else {
         if (!adjlist[src].insert(data).second) {
           // Current edge already exist, so delete
-          if (adjlist[src].erase(data) == 0)  {
+          if (adjlist[src].erase(data) == 0) {
             std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
             exit(EXIT_FAILURE);
           }
@@ -52,13 +52,11 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
   num_edges += edges_delta;
 
-  if (ret.size() > 0) {
-    return {src, ret};
-  }
-  else if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
+  if (ret.size() == 0 && true_min_subgraph < cur_subgraph && needs_contraction < num_vertices) {
     return vertex_advance_subgraph();
   } else {
     check_if_too_big();
+    return {src, ret};
   }
 }
 
@@ -78,7 +76,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       } else {
         if (!adjlist[src].insert(data).second) {
           // Current edge already exist, so delete
-          if (adjlist[src].erase(data) == 0)  {
+          if (adjlist[src].erase(data) == 0) {
             std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
             exit(EXIT_FAILURE);
           }
@@ -91,13 +89,11 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
   num_edges += edges_delta;
 
-  if (ret.size() > 0) {
-    return {src, ret};
-  }
-  else if (true_min_subgraph < cur_subgraph && needs_contraction < num_vertices && ret.size() == 0) {
+  if (ret.size() == 0 && true_min_subgraph < cur_subgraph && needs_contraction < num_vertices) {
     return vertex_advance_subgraph();
   } else {
     check_if_too_big();
+    return {src, ret};
   }
 }
 

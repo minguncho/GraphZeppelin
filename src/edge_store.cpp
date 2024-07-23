@@ -41,6 +41,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
 
       if (data.subgraph < cur_subgraph) {
+        // WE ARE ENTERING THIS LINE
         ret.push_back(data);
         num_returned++;
       } else {
@@ -81,6 +82,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
 
     for (auto data : dst_data) {
       if (data.subgraph < cur_subgraph) {
+        std::cout << "WARNING: Found an edge that shouldn't be here" << std::endl;
         ret.push_back(data);
         num_returned++;
       } else {

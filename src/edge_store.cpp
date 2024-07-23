@@ -10,7 +10,7 @@ EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, s
       num_vertices(num_vertices),
       num_subgraphs(num_subgraphs),
       adjlist(num_vertices),
-      vertex_contracted(num_vertices, false),
+      vertex_contracted(num_vertices, true),
       sketch_bytes(sketch_bytes) {
   num_edges = 0;
   adj_mutex = new std::mutex[num_vertices];
@@ -132,15 +132,23 @@ void EdgeStore::verify_contract_complete() {
       exit(EXIT_FAILURE);
     }
   }
-  std::cerr << "Contraction verified!" << std::endl;
+  std::cout << "Contraction verified!" << std::endl;
+  std::cout << "  num_inserted = " << num_inserted << std::endl;
+  std::cout << "  num_duplicate = " << num_duplicate << std::endl;
+  std::cout << "  num_returned = " << num_returned << std::endl;
+  std::cout << "  num_contracted = " << num_contracted << std::endl;
 }
 
 // the thread MUST hold the lock on src before calling this function
 std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
+  std::vector<SubgraphTaggedUpdate> ret;
+  // someone already contacted this vertex
+  if (vertex_contracted[src])
+    return ret;
+
   std::cerr << "Contracting vertex: " << src << " ";
   vertex_contracted[src] = true;
 
-  std::vector<SubgraphTaggedUpdate> ret;
   if (adjlist[src].size() == 0) {
     std::cerr << "empty" << std::endl;
     return ret;
@@ -191,7 +199,6 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
 
 // checks if we should perform a contraction and begins the process if so
 void EdgeStore::check_if_too_big() {
-  // TODO: Is sketch_bytes the size of the entire datastructure or a single sketch?
   if (num_edges * store_edge_bytes < sketch_bytes) {
     // no contraction needed
     return;
@@ -206,11 +213,12 @@ void EdgeStore::check_if_too_big() {
 
   std::cerr << "true_min = " << true_min_subgraph << " cur = " << cur_subgraph << std::endl;
 
-  cur_subgraph++;
-  needs_contraction = 0;
   for (node_id_t i = 0; i < num_vertices; i++) {
     vertex_contracted[i] = false;
   }
+  needs_contraction = 0;
+  cur_subgraph++;
+
   std::cout << "EdgeStore: Contracting to subgraphs " << cur_subgraph << " and above" << std::endl;
   std::cout << "    num_edges = " << num_edges << std::endl;
   std::cout << "    store_edge_bytes = " << store_edge_bytes << std::endl; 

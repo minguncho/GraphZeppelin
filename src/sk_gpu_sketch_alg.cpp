@@ -12,7 +12,7 @@ void SKGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // Fill in buffer
   size_t index = 0;
   for (auto dst : dst_vertices) {
-    h_edgeUpdates[offset + index] = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst));
+    h_edgeUpdates[offset + index] = dst;
     index++;
   }
 
@@ -44,7 +44,7 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
   }
   
   // Transfer buffers to GPU
-  gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, 2 * num_updates * sizeof(vec_t), cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, 2 * num_updates * sizeof(node_id_t), cudaMemcpyHostToDevice));
   gpuErrchk(cudaMemcpy(d_update_sizes, h_update_sizes, batch_count * sizeof(vec_t), cudaMemcpyHostToDevice));
   gpuErrchk(cudaMemcpy(d_update_src, h_update_src, batch_count * sizeof(node_id_t), cudaMemcpyHostToDevice));
   gpuErrchk(cudaMemcpy(d_update_start_index, h_update_start_index, batch_count * sizeof(vec_t), cudaMemcpyHostToDevice));

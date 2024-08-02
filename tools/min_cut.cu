@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
   std::cout << "Total num_graphs: " << num_graphs << "\n";
 
   auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
-  auto mc_config = CCAlgConfiguration().batch_factor(3);
+  auto mc_config = CCAlgConfiguration().batch_factor(1);
 
   // Get variables from sketch
   // (1) num_samples (2) num_columns (3) bkt_per_col (4) num_buckets
@@ -171,6 +171,7 @@ int main(int argc, char **argv) {
   auto flush_start = std::chrono::steady_clock::now();
   driver.prep_query(KSPANNINGFORESTS);
   cudaDeviceSynchronize();
+  mc_gpu_alg.flush_buffers();
   mc_gpu_alg.convert_adj_to_sketch();
   // Re-measure flush_end to include time taken for applying delta sketches from flushing
   auto flush_end = std::chrono::steady_clock::now();

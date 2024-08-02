@@ -136,6 +136,7 @@ int main(int argc, char **argv) {
   std::chrono::duration<double> sketch_time = sketch_end - sketch_start;
 
   std::cout << "GTS insertion time(sec):    " << insert_time.count() << std::endl;
+  std::cout << "  GTS insertion rate:           " << num_updates / insert_time.count() << std::endl;
   std::cout << "  Flush Gutters(sec):           " << flush_time.count() << std::endl;
   std::cout << "GPU time (sec):    " << sketch_time.count() << std::endl;
   std::cout << "Total CC query latency:       " << cc_time.count() << std::endl;

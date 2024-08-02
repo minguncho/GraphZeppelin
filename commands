@@ -30,6 +30,15 @@ ncu -o ./kron_16_test109 -f --set full --target-processes all --import-source ye
 ncu -o ./kron_16_test216 -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 24 24 216
 ncu -o ./kron_16_test162000 -f --set full --target-processes all --import-source yes ./single_kernel_stream ../../../datasets/kron_16_stream_binary 12 12 1
 
+ncu -o ./kron_17_48_buffers -f --set full -c 10 --target-processes all --import-source yes ./cuda_process_stream ../../../datasets/kron_17_stream_binary 24 24
+
+ncu -o ./gpu_sketch_test -f --set full --target-processes all --import-source yes ./gpu_sketch_test 1048576 1000000000
+ncu -o ./gpu_sketch_test -f --set full --target-processes all --import-source yes ./gpu_sketch_test 131072 10000
+ncu -o ./gpu_sketch_test1 -f --set full --target-processes all --import-source yes ./gpu_sketch_test 131072 50000000
+ncu -o ./gpu_sketch_test2 -f --set full --target-processes all --import-source yes ./gpu_sketch_test 131072 100000000
+ncu -o ./gpu_sketch_test3 -f --set full --target-processes all --import-source yes ./gpu_sketch_test 131072 5000000
+ncu -o ./gpu_sketch_test4 -f --set full --target-processes all --import-source yes ./gpu_sketch_test 131072 1073741824
+
 nsys profile -o multiples_1024_one -f true ./cuda_process_stream ../test/res/multiples_graph_1024_stream.data 1 1
 nsys profile -o kron_13_one -f true ./cuda_process_stream ../../../datasets/kron_13_stream_binary 1 1
 nsys profile -o kron_13_8 -f true ./cuda_process_stream ../../../datasets/kron_13_stream_binary 8 8
@@ -61,6 +70,9 @@ nsys profile --gpu-metrics-device=0 -o kron_17_48_6bf_4tb_gpumetric_new_1024t -f
 nsys profile --gpu-metrics-device=0 -o kron_17_48_6bf_8tb_gpumetric_new_256t -f true ./cuda_process_stream ../../../datasets/kron_17_stream_binary 24 24
 nsys profile --gpu-metrics-device=0 -o kron_17_48_6bf_8tb_gpumetric_new_256t -f true ./cuda_process_stream ../../../datasets/kron_17_stream_binary 24 24
 nsys profile --gpu-metrics-device=0 -o kron_17_96_6bf_1tb_gpumetric_new -f true ./cuda_process_stream ../../../datasets/kron_17_stream_binary 48 48
+
+nsys profile --gpu-metrics-device=0 -o kron_17_48_buffers -f true ./cuda_process_stream ../../../datasets/kron_17_stream_binary 24 24
+nsys profile -o kron_16_16 -f true ./cuda_process_stream ../../../datasets/kron_16_stream_binary 8 8
 
 
 nsys profile --gpu-metrics-device=0 -o kron_17_48_2tb_gpumetric -f true ./cuda_process_stream ../../../datasets/kron_17_stream_binary 24 24

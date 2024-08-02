@@ -5,6 +5,7 @@
 
 typedef unsigned long long int uint64_cu;
 typedef uint64_cu vec_t_cu;
+constexpr uint8_t num_bits = sizeof(node_id_t) * 8;
 
 /*
 *   
@@ -48,13 +49,25 @@ __device__ void bucket_update(vec_t_cu& a, vec_hash_t& c, const vec_t_cu& update
   atomicXor((vec_t_cu*)&c, (vec_t_cu)update_hash);
 }
 
+__device__ vec_t device_concat_pairing_fn(node_id_t i, node_id_t j) {
+  // swap i,j if necessary
+  if (i > j) {
+    return ((vec_t)j << num_bits) | i;
+  }
+  else {
+    return ((vec_t)i << num_bits) | j;
+  }
+  
+}
+
 /*
 *   
 *   Sketch's Update Functions
 *
 */
 
-__global__ void sketchUpdate_kernel(node_id_t num_nodes, int num_device_blocks, node_id_t src_vertex, vec_t* edgeUpdates, size_t update_size,
+// OLD SKETCH UPDATE
+/*__global__ void sketchUpdate_kernel(node_id_t num_nodes, int num_device_blocks, node_id_t src_vertex, vec_t* edgeUpdates, size_t update_size,
   Bucket* buckets, size_t num_sketch_buckets, int* num_tb_columns, size_t bkt_per_col, long sketchSeed) {
 
   size_t num_columns = num_tb_columns[blockIdx.x];
@@ -113,10 +126,10 @@ __global__ void sketchUpdate_kernel(node_id_t num_nodes, int num_device_blocks, 
     atomicXor((vec_t_cu*)&buckets[(src_vertex * num_sketch_buckets) + bucket_offset + i].alpha, bucket_a[i]);
     atomicXor((vec_t_cu*)&buckets[(src_vertex * num_sketch_buckets) + bucket_offset + i].gamma, (vec_t_cu)bucket_c[i]);
   }
-}
+}*/
 
-// Function that calls sketch update kernel code.
-void CudaKernel::sketchUpdate(int num_threads, int num_blocks, node_id_t src_vertex, cudaStream_t stream, vec_t *edgeUpdates, size_t update_size, CudaUpdateParams* cudaUpdateParams, long sketchSeed) {
+// OLD SKETCH UPDATE
+/*void CudaKernel::sketchUpdate(int num_threads, int num_blocks, node_id_t src_vertex, cudaStream_t stream, vec_t *edgeUpdates, size_t update_size, CudaUpdateParams* cudaUpdateParams, long sketchSeed) {
   node_id_t num_nodes = cudaUpdateParams[0].num_nodes;
   
   size_t bkt_per_col = cudaUpdateParams[0].bkt_per_col;
@@ -134,9 +147,65 @@ void CudaKernel::sketchUpdate(int num_threads, int num_blocks, node_id_t src_ver
   }
   
   sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes, stream>>>(num_nodes, num_blocks, src_vertex, edgeUpdates, update_size, cudaUpdateParams[0].buckets, cudaUpdateParams[0].num_buckets, cudaUpdateParams[0].num_tb_columns, bkt_per_col, sketchSeed);
+}*/
+
+__global__ void sketchUpdate_kernel(node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, node_id_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
+
+  extern __shared__ vec_t_cu sketches[];
+  vec_t_cu* bucket_a = sketches;
+  vec_hash_t* bucket_c = (vec_hash_t*)&bucket_a[num_buckets];
+
+  // Each thread will initialize a bucket in shared memory
+  for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
+    bucket_a[i] = 0;
+    bucket_c[i] = 0;
+  }
+
+  __syncthreads();
+
+  // Update sketch - each thread works on 1 update for on 1 column
+  for (int id = threadIdx.x; id < update_sizes[blockIdx.x] * num_columns; id += blockDim.x) {
+
+    int column_id = id % num_columns;
+    int update_id = id / num_columns;
+
+    vec_t edge_id = device_concat_pairing_fn(update_src[blockIdx.x], edgeUpdates[update_start_index[blockIdx.x] + update_id]);
+    
+    vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
+    
+    if ((column_id == 0)) {
+      // Update depth 0 bucket
+      bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edge_id, checksum);
+    }
+
+    // Update higher depth buckets
+    col_hash_t depth = bucket_get_index_depth(edge_id, sketchSeed + (column_id * 5), bkt_per_col);
+    size_t bucket_id = column_id * bkt_per_col + depth;
+    if(depth < bkt_per_col)
+      bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edge_id, checksum);
+  }
+
+  __syncthreads();
+
+  for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
+    atomicXor((vec_t_cu*)&buckets[(update_src[blockIdx.x] * num_buckets) + i].alpha, bucket_a[i]);
+    atomicXor((vec_t_cu*)&buckets[(update_src[blockIdx.x] * num_buckets) + i].gamma, (vec_t_cu)bucket_c[i]);
+  }
+  
 }
 
-__global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_batches, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_indexes, vec_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
+void CudaKernel::sketchUpdate(int num_threads, int num_blocks, cudaStream_t stream, node_id_t *edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, long sketchSeed) {
+  size_t bkt_per_col = cudaUpdateParams[0].bkt_per_col;
+  size_t num_columns = cudaUpdateParams[0].num_columns;
+  size_t num_buckets = cudaUpdateParams[0].num_buckets;
+
+  // Set maxBytes for GPU kernel's shared memory
+  size_t maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
+
+  sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes, stream>>>(update_src, update_sizes, update_start_index, edgeUpdates, cudaUpdateParams[0].buckets, num_buckets, num_columns, bkt_per_col, sketchSeed);
+}
+
+__global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_batches, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_indexes, node_id_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
 
   extern __shared__ vec_t_cu sketches[];
   vec_t_cu* bucket_a = sketches;
@@ -157,18 +226,20 @@ __global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_b
       int column_id = id % num_columns;
       int update_id = id / num_columns;
 
-      vec_hash_t checksum = bucket_get_index_hash(edgeUpdates[update_start_indexes[batch_id] + update_id], sketchSeed);
+      vec_t edge_id = device_concat_pairing_fn(update_src[batch_id], edgeUpdates[update_start_indexes[batch_id] + update_id]);
+
+      vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
       
       if ((column_id == 0)) {
         // Update depth 0 bucket
-        bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edgeUpdates[update_start_indexes[batch_id] + update_id], checksum);
+        bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edge_id, checksum);
       }
 
       // Update higher depth buckets
-      col_hash_t depth = bucket_get_index_depth(edgeUpdates[update_start_indexes[batch_id] + update_id], sketchSeed + (column_id * 5), bkt_per_col);
+      col_hash_t depth = bucket_get_index_depth(edge_id, sketchSeed + (column_id * 5), bkt_per_col);
       size_t bucket_id = column_id * bkt_per_col + depth;
       if(depth < bkt_per_col)
-        bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edgeUpdates[update_start_indexes[batch_id] + update_id], checksum);
+        bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edge_id, checksum);
     }
 
     __syncthreads();
@@ -183,7 +254,7 @@ __global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_b
   
 }
 
-void CudaKernel::single_sketchUpdate(int num_threads, int num_blocks, size_t num_batches, vec_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed) {
+void CudaKernel::single_sketchUpdate(int num_threads, int num_blocks, size_t num_batches, node_id_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed) {
   size_t bkt_per_col = cudaUpdateParams[0].bkt_per_col;
   size_t num_columns = cudaUpdateParams[0].num_columns;
   size_t num_buckets = cudaUpdateParams[0].num_buckets;

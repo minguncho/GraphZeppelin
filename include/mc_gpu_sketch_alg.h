@@ -6,13 +6,6 @@
 #include "cuda_kernel.cuh"
 #include "mc_subgraph.h"
 
-struct CudaStream {
-  cudaStream_t stream;
-  int delta_applied;
-  int src_vertex;
-  int num_graphs;
-};
-
 struct SketchParams {
   size_t num_samples;
   size_t num_buckets;
@@ -38,8 +31,7 @@ private:
   int sketches_factor;
 
   // Number of threads and thread blocks for CUDA kernel
-  int num_device_threads;
-  int num_device_blocks;
+  int num_device_threads = 1024;
 
   // Number of CPU's graph workers
   int num_host_threads;
@@ -49,13 +41,7 @@ private:
 
   // Maximum number of edge updates in one batch
   int batch_size;
-
-  // Number of CUDA Streams per graph worker
-  int stream_multiplier;
-
-  // Vector for storing information for each CUDA Stream
-  std::vector<CudaStream> streams;
-  std::vector<int> streams_offset;
+  int num_batch_per_buffer = 1080;
 
   // Number of subgraphs
   int num_graphs;
@@ -94,10 +80,6 @@ public:
     num_host_threads = num_threads;
     num_reader_threads = _num_reader_threads;
 
-    num_device_threads = 1024;
-    num_device_blocks = k;  // Change this value based on dataset <-- Come up with formula to compute
-                            // this automatically
-
     num_graphs = _num_graphs;
 
     max_sketch_graphs = _max_sketch_graphs;
@@ -133,9 +115,6 @@ public:
     std::cout << "CUDA Device ID: " << device_id << "\n";
     std::cout << "CUDA Device Number of SMs: " << deviceProp.multiProcessorCount << "\n"; 
 
-    stream_multiplier = std::ceil(((double)deviceProp.multiProcessorCount / num_host_threads));
-    std::cout << "Stream Multiplier: " << stream_multiplier << "\n";
-
     // Initialize all subgraphs
     subgraphs = new MCSubgraph*[num_graphs];
     for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
@@ -143,41 +122,28 @@ public:
         CudaUpdateParams* cudaUpdateParams;
         gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
         cudaUpdateParams = new CudaUpdateParams(
-            num_nodes, num_updates, &buckets[graph_id * num_nodes * num_buckets], num_samples, num_buckets, num_columns, bkt_per_col, num_threads,
-            num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
+            num_nodes, num_updates, &buckets[graph_id * num_nodes * num_buckets], num_samples, num_buckets, num_columns, bkt_per_col, num_threads, batch_size);
 
-        subgraphs[graph_id] = new MCSubgraph(graph_id, _num_reader_threads, cudaUpdateParams, ADJLIST,
-                                             num_nodes, sketch_bytes, adjlist_edge_bytes);
+        subgraphs[graph_id] = new MCSubgraph(graph_id, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
+                                             cudaUpdateParams, ADJLIST, batch_size, sketchSeed);
       } else {  // subgraphs that are always going to be in adj. list
-        subgraphs[graph_id] = new MCSubgraph(graph_id, _num_reader_threads, NULL, FIXED_ADJLIST,
-                                             num_nodes, sketch_bytes, adjlist_edge_bytes);
+        subgraphs[graph_id] = new MCSubgraph(graph_id, num_nodes, num_host_threads, FIXED_ADJLIST);
       }
     }
 
     if (max_sketch_graphs > 0) {  // If max_sketch_graphs is 0, there will never be any sketch graphs
       // Calculate the num_buckets assigned to the last thread block
-      size_t num_last_tb_buckets =
+      /*size_t num_last_tb_buckets =
           (subgraphs[0]->get_cudaUpdateParams()->num_tb_columns[num_device_blocks - 1] *
            bkt_per_col) +
           1;
 
       // Set maxBytes for GPU kernel's shared memory
       size_t maxBytes =
-          (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));
+          (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));*/
+      size_t maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
       cudaKernel.updateSharedMemory(maxBytes);
       std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
-    }
-
-    // Initialize CUDA Streams
-    for (int i = 0; i < num_host_threads * stream_multiplier; i++) {
-      cudaStream_t stream;
-
-      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-      streams.push_back({stream, 1, -1, -1});
-    }
-
-    for (int i = 0; i < num_host_threads; i++) {
-      streams_offset.push_back(0);
     }
 
     trim_enabled = false;
@@ -197,6 +163,7 @@ public:
   void apply_update_batch(int thr_id, node_id_t src_vertex,
                           const std::vector<node_id_t> &dst_vertices);
 
+  void flush_buffers();
   void convert_adj_to_sketch();
 
   void print_subgraph_edges() {

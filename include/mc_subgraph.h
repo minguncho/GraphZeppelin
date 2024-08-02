@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "cuda_kernel.cuh"
+#include "cuda_stream.h"
 
 enum GraphType {
   SKETCH = 0,
@@ -17,7 +18,7 @@ class MCSubgraph {
   std::atomic<GraphType> type;
   node_id_t num_nodes;
 
-  int num_streams;  // Number of CUDA Streams
+  int num_host_threads;  // Number of CPU threads
 
   std::atomic<int> conversion_counter;
 
@@ -26,18 +27,20 @@ class MCSubgraph {
 
   std::vector<std::set<node_id_t>> adjlist;
 
-  double sketch_bytes;        // Bytes of sketch graph
-  double adjlist_edge_bytes;  // Bytes of one edge in adj. list
+  CudaStream** cudaStreams;
 
  public:
   std::mutex* adj_mutex;
 
   // Constructor
-  MCSubgraph(int graph_id, int num_streams, CudaUpdateParams* cudaUpdateParams, GraphType type,
-             node_id_t num_nodes, double sketch_bytes, double adjlist_edge_bytes);
+  MCSubgraph(int graph_id, node_id_t num_nodes, int num_host_threads, int num_device_threads, int num_batch_per_buffer,
+             CudaUpdateParams* cudaUpdateParams, GraphType type, size_t batch_size, size_t sketchSeed);
+  MCSubgraph(int graph_id, node_id_t num_nodes, int num_host_threads, GraphType type);
   ~MCSubgraph();
 
   void insert_adj_edge(node_id_t src, std::vector<node_id_t> dst_vertices);
+  void insert_sketch_buffer(int thr_id, node_id_t src, std::vector<node_id_t> dst_vertices);
+  void flush_sketch_buffers();
 
   // Get methods
   CudaUpdateParams* get_cudaUpdateParams() { return cudaUpdateParams; }

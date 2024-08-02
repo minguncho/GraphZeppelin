@@ -115,6 +115,7 @@ int main(int argc, char **argv) {
 
   auto cc_start = std::chrono::steady_clock::now();
   driver.prep_query(CONNECTIVITY);
+  cc_gpu_alg.flush_buffers();
   cudaDeviceSynchronize();
   auto flush_end = std::chrono::steady_clock::now();
   

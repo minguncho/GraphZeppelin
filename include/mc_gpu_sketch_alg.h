@@ -80,7 +80,7 @@ private:
 
   // helper functions for apply_update_batch()
   size_t get_and_apply_finished_stream(int thr_id);
-  void complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, size_t min_subgraph = 0);
+  void complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, bool from_edge_store = false);
 
   std::mutex sketch_creation_lock;
 public:

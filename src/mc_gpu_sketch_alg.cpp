@@ -53,15 +53,20 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
 // TODO: This function may need to divide the updates into multiple update batches.
 //       This is the case when a single vertex in edge store has O(n) updates.
 //       Could enforce that this is the caller's responsibility.
-void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, size_t min_subgraph) {
+void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates,
+                                           bool from_edge_store) {
   int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(thr_id);
   int start_index = stream_id * batch_size;
+  size_t min_subgraph = 0;
 
   node_id_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
   if (edge_store_subgraphs == 0) {
     std::cerr << "ERROR: Why are we in this function! complete_update_batch()" << std::endl;
     exit(EXIT_FAILURE);
   }
+
+  if (from_edge_store)
+    min_subgraph = edge_store_subgraphs - 1; // only apply edge store edges to last subgraph
 
   // do we need to allocate more sketches due to edge_store contraction
   if (edge_store_subgraphs > cur_subgraphs) {
@@ -105,12 +110,12 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     }
   }
 
-  // Go every subgraph and apply sketch updates
+  // Go to every subgraph and apply sketch updates
   streams[stream_id].src_vertex = src_vertex;
   streams[stream_id].delta_applied = 0;
   streams[stream_id].num_graphs = max_subgraph + 1;
 
-  for (int graph_id = 0; graph_id <= max_subgraph; graph_id++) {
+  for (int graph_id = min_subgraph; graph_id <= max_subgraph; graph_id++) {
     subgraphs[graph_id].num_updates += sketch_update_size[graph_id];
     CudaUpdateParams* cudaUpdateParams = subgraphs[graph_id].cudaUpdateParams;
     cudaMemcpyAsync(&cudaUpdateParams->d_edgeUpdates[start_index], &cudaUpdateParams->h_edgeUpdates[start_index], sketch_update_size[graph_id] * sizeof(vec_t), cudaMemcpyHostToDevice, streams[stream_id].stream);
@@ -131,7 +136,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // We only have an adjacency list so just directly insert
   if (edge_store_subgraphs == 0) {
     TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices);
-    if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+    if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds, true);
     return;
   }
 
@@ -154,7 +159,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // Perform adjacency list updates
   TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, store_edges);
   if (sketch_edges.size() > 0) complete_update_batch(thr_id, {src_vertex, sketch_edges});
-  if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+  if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds, true);
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
@@ -164,7 +169,7 @@ void MCGPUSketchAlg::apply_flush_updates() {
   while (edge_store.contract_in_progress()) {
     TaggedUpdateBatch more_upds = edge_store.vertex_advance_subgraph();
 
-    if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds);
+    if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds, true);
   }
 
   // ensure streams have finished applying updates

@@ -183,67 +183,33 @@ int main(int argc, char **argv) {
   std::cout << "Generating Certificates...\n";
   int num_sampled_zero_graphs = 0;
   for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
-    std::vector<Edge> spanningForests;
+    std::vector<Edge> SFs_edges;
     std::set<Edge> edges;
     
     if (graph_id >= num_sketch_graphs) { // Get Spanning forests from adj list
       std::cout << "S" << graph_id << " (Adj. list):\n";
       auto sampling_forest_start = std::chrono::steady_clock::now();
-      spanningForests = mc_gpu_alg.get_adjlist_spanning_forests();
+      SFs_edges = mc_gpu_alg.get_adjlist_spanning_forests();
       sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
     } 
     else { // Get Spanning forests from sketch subgraph
       std::cout << "S" << graph_id << " (Sketch):\n";
-      for (int k_id = 0; k_id < k; k_id++) {
-        std::cout << "  Getting spanning forest " << k_id << "\n";
+      auto sampling_forests_start = std::chrono::steady_clock::now();
+      auto sfs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id);
+      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
 
-        // Get spanning forest k_id
-        auto sampling_forest_start = std::chrono::steady_clock::now();
-        SpanningForest spanningForest = mc_gpu_alg.get_k_spanning_forest(graph_id);
-        sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
-
-        std::cerr << "Query done" << std::endl;
-
-        // Insert sampled edges from spanningForest to spanningForests
-        for (auto edge : spanningForest.get_edges()) {
-          spanningForests.push_back(edge);
+      std::cerr << "Query done" << std::endl;
+      for (const auto &sf : sfs) {
+        for (auto edge : sf.get_edges()) {
+          SFs_edges.push_back(edge);
         }
-        
-        // Trim spanning forest
-        auto trim_reading_start = std::chrono::steady_clock::now();
-        driver.trim_spanning_forest(spanningForest.get_edges());
-        trim_reading_time += std::chrono::steady_clock::now() - trim_reading_start;
-
-        std::cerr << "Trimming done" << std::endl;
-
-        // Flush sketch updates
-        auto trim_flushing_start = std::chrono::steady_clock::now();
-        driver.prep_query(KSPANNINGFORESTS);
-        mc_gpu_alg.apply_flush_updates();
-        trim_flushing_time += std::chrono::steady_clock::now() - trim_flushing_start;
-
-        std::cerr << "Prep query done" << std::endl;
-
-        // Verify sampled edges from spanning forest
-        for (auto& edge : spanningForest.get_edges()) {
-          if (edges.count(edge) == 0) {
-            edges.insert(edge);
-          }
-          else {
-            std::cerr << "ERROR: duplicate edge in forests! {" << edge.src << "," << edge.dst << "}\n";
-            exit(EXIT_FAILURE);
-          }
-        }
-
-        std::cerr << "Spanning forest " << k_id << " done" << std::endl;
       }
+      std::cout << "  Number of edges in spanning forests: " << SFs_edges.size() << "\n";
     }
-
-    std::cout << "  Number of edges in spanning forests: " << spanningForests.size() << "\n";
 
     // now perform minimum cut computation
     auto viecut_start = std::chrono::steady_clock::now();
-    MinCut mc = mc_gpu_alg.calc_minimum_cut(spanningForests);
+    MinCut mc = mc_gpu_alg.calc_minimum_cut(SFs_edges);
     viecut_time += std::chrono::steady_clock::now() - viecut_start;
     if (graph_id >= num_sketch_graphs) {
       std::cout << "  S" << graph_id << " (Adj. list): " << mc.value << "\n";

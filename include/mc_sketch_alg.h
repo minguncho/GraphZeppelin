@@ -266,7 +266,7 @@ class MCSketchAlg {
    */
   SpanningForest calc_spanning_forest();
 
-  SpanningForest get_k_spanning_forest(int graph_id);
+  std::vector<SpanningForest> calc_disjoint_spanning_forests(size_t graph_id, size_t k);
 
   // compute the minimum cut of the graph defined by the input stream
   MinCut calc_minimum_cut(const std::vector<Edge> &edges);

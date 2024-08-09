@@ -824,7 +824,7 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t g
   size_t max_rounds = 0;
 
   for (size_t i = 0; i < k; i++) {
-    SpanningForest sf = get_k_spanning_forest(graph_id);
+    SpanningForest sf = calc_spanning_forest(graph_id);
 
     max_rounds = std::max(last_query_rounds, max_rounds);
 

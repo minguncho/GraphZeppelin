@@ -264,7 +264,7 @@ class MCSketchAlg {
    * that is, unless you really know what you're doing.
    * @return  the spanning forest of the graph
    */
-  SpanningForest calc_spanning_forest();
+  SpanningForest calc_spanning_forest(size_t graph_id = 0);
 
   std::vector<SpanningForest> calc_disjoint_spanning_forests(size_t graph_id, size_t k);
 

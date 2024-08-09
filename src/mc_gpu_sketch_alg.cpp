@@ -55,7 +55,7 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
 //       Could enforce that this is the caller's responsibility.
 void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates,
                                            bool from_edge_store) {
-  int stream_id = thr_id * stream_multiplier + get_and_apply_finished_stream(thr_id);
+  int stream_id = get_and_apply_finished_stream(thr_id);
   int start_index = stream_id * batch_size;
   size_t min_subgraph = 0;
 

@@ -188,15 +188,15 @@ int main(int argc, char **argv) {
     
     if (graph_id >= num_sketch_graphs) { // Get Spanning forests from adj list
       std::cout << "S" << graph_id << " (Adj. list):\n";
-      auto sampling_forest_start = std::chrono::steady_clock::now();
+      auto sampling_forests_start = std::chrono::steady_clock::now();
       SFs_edges = mc_gpu_alg.get_adjlist_spanning_forests();
-      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
+      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forests_start;
     } 
     else { // Get Spanning forests from sketch subgraph
       std::cout << "S" << graph_id << " (Sketch):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
       auto sfs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id, k);
-      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forest_start;
+      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forests_start;
 
       std::cerr << "Query done" << std::endl;
       for (const auto &sf : sfs) {

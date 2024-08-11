@@ -1,4 +1,6 @@
 #include "edge_store.h"
+#include "bucket.h"
+#include "util.h"
 
 #include <gtest/gtest.h>
 #include <chrono>
@@ -50,7 +52,7 @@ TEST(EdgeStoreTest, contract) {
   size_t num_returned[6] = {0, 0, 0, 0, 0, 0};
 
   for (size_t i = 0; i < nodes; i++) {
-    std::vector<node_id_t> dsts;
+    std::vector<SubgraphTaggedUpdate> dsts;
     for (size_t j = 0; j < i; j++) {
       node_id_t src = std::min(i, j);
       node_id_t dst = std::max(i, j);
@@ -70,6 +72,9 @@ TEST(EdgeStoreTest, contract) {
     node_id_t src = more_upds.src;
     for (auto dst_data : more_upds.dsts_data) {
       ++num_returned[edge_store.get_first_store_subgraph() - 1];
+      node_id_t s = std::min(src, dst_data.dst);
+      node_id_t d = std::max(src, dst_data.dst);
+      ASSERT_NE(edges_added.find({s, d}), edges_added.end());
     }
   }
 

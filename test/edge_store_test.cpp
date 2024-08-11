@@ -55,7 +55,7 @@ TEST(EdgeStoreTest, contract) {
 
   for (size_t i = 0; i < nodes; i++) {
     std::vector<SubgraphTaggedUpdate> dsts;
-    for (size_t j = 0; j < i; j++) {
+    for (size_t j = i + 1; j < nodes; j++) {
       node_id_t src = std::min(i, j);
       node_id_t dst = std::max(i, j);
       auto idx = concat_pairing_fn(src, dst);

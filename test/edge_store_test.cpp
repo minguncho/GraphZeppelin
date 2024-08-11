@@ -64,7 +64,7 @@ TEST(EdgeStoreTest, contract) {
       for (size_t i = 0; i <= std::min(size_t(5), depth); i++) {
         ++num_in_subgraphs[i];
       }
-      for (size_t k = 0; k < edge_store.get_first_store_subgraph(); k++) {
+      for (size_t k = 0; k < std::min(depth + 1, edge_store.get_first_store_subgraph()); k++) {
         ++num_returned[k];
       }
       if (depth >= edge_store.get_first_store_subgraph()) {
@@ -91,6 +91,10 @@ TEST(EdgeStoreTest, contract) {
       node_id_t d = std::max(src, dst_data.dst);
       ASSERT_NE(edges_added.find({s, d}), edges_added.end());
     }
+  }
+
+  for (size_t i = 0; i < 6; i++) {
+    std::cerr << num_returned[i] << " vs " << num_in_subgraphs[i] << std::endl;
   }
 
   ASSERT_EQ(num_in_subgraphs[0], edges_added.size());

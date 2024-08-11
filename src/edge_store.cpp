@@ -187,8 +187,10 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
     }
 
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    if (adjlist[src].size() > 0)
+    if (adjlist[src].size() > 0 && !vertex_contracted[src])
       break;
+
+    vertex_contracted[src] = true;
   }
 
   std::lock_guard<std::mutex> lk(adj_mutex[src]);

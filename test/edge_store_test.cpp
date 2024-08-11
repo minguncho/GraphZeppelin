@@ -52,6 +52,8 @@ TEST(EdgeStoreTest, contract) {
   for (size_t i = 0; i < nodes; i++) {
     std::vector<node_id_t> dsts;
     for (size_t j = 0; j < i; j++) {
+      node_id_t src = std::min(i, j);
+      node_id_t dst = std::max(i, j);
       auto idx = concat_pairing_fn(src, dst);
       size_t depth = Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs);
       if (depth < edge_store.get_first_store_subgraph()) {
@@ -62,7 +64,7 @@ TEST(EdgeStoreTest, contract) {
       else {
         dsts.push_back({depth, j});
       }
-      ASSERT_TRUE(edges_added.insert({std::min(i, j), std::max(i, j)}).second);
+      ASSERT_TRUE(edges_added.insert({src, dst}).second);
     }
     auto more_upds = edge_store.insert_adj_edges(i, dsts);
     node_id_t src = more_upds.src;

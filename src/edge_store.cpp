@@ -174,7 +174,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
 
 TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
   node_id_t src = 0;
-  do {
+  while (true) {
     src = needs_contraction.fetch_add(1);
     
     if (src >= num_vertices) {
@@ -185,7 +185,11 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph() {
       }
       return {0, std::vector<SubgraphTaggedUpdate>()};
     }
-  } while (vertex_contracted[src]);
+
+    std::lock_guard<std::mutex> lk(adj_mutex[src]);
+    if (adjlist[src].size() > 0)
+      break;
+  }
 
   std::lock_guard<std::mutex> lk(adj_mutex[src]);
   return {src, vertex_contract(src)};

@@ -51,6 +51,7 @@ TEST(EdgeStoreTest, contract) {
   std::set<Edge> edges_added;
 
   size_t num_returned[6] = {0, 0, 0, 0, 0, 0};
+  size_t num_in_subgraphs[6] = {0, 0, 0, 0, 0, 0};
 
   for (size_t i = 0; i < nodes; i++) {
     std::vector<SubgraphTaggedUpdate> dsts;
@@ -59,6 +60,10 @@ TEST(EdgeStoreTest, contract) {
       node_id_t dst = std::max(i, j);
       auto idx = concat_pairing_fn(src, dst);
       size_t depth = Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs);
+      
+      for (size_t i = 0; i <= std::min(size_t(5), depth); i++) {
+        ++num_in_subgraphs[i];
+      }
       for (size_t k = 0; k < edge_store.get_first_store_subgraph(); k++) {
         ++num_returned[k];
       }
@@ -88,15 +93,18 @@ TEST(EdgeStoreTest, contract) {
     }
   }
 
-  ASSERT_EQ(num_returned[0], edges_added.size());
-  ASSERT_EQ(edge_store.get_first_store_subgraph(), 0);
+  ASSERT_EQ(num_in_subgraphs[0], edges_added.size());
+  for (size_t i = 0; i < edge_store.get_first_store_subgraph(); i++) {
+    ASSERT_EQ(num_returned[i], num_in_subgraphs[i]);
+  }
 
   std::vector<Edge> edges = edge_store.get_edges();
-  ASSERT_EQ(edges.size(), edges_added.size());
+  ASSERT_EQ(edges.size(), num_in_subgraphs[edge_store.get_first_store_subgraph()]);
 
   for (auto edge : edges) {
     node_id_t src = std::min(edge.src, edge.dst);
     node_id_t dst = std::max(edge.src, edge.dst);
     ASSERT_NE(edges_added.find({src, dst}), edges_added.end());
   }
+  edge_store.stats();
 }

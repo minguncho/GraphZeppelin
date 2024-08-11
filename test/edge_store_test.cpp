@@ -35,7 +35,7 @@ TEST(EdgeStoreTest, no_contract) {
   for (auto edge : edges) {
     node_id_t src = std::min(edge.src, edge.dst);
     node_id_t dst = std::max(edge.src, edge.dst);
-    ASSERT_NEQ(edges_added.find({src, dst}), edges_added.end());
+    ASSERT_NE(edges_added.find({src, dst}), edges_added.end());
   }
 }
 
@@ -52,6 +52,7 @@ TEST(EdgeStoreTest, contract) {
   for (size_t i = 0; i < nodes; i++) {
     std::vector<node_id_t> dsts;
     for (size_t j = 0; j < i; j++) {
+      auto idx = concat_pairing_fn(src, dst);
       size_t depth = Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs);
       if (depth < edge_store.get_first_store_subgraph()) {
         for (size_t k = 0; k <= depth; k++) {
@@ -79,6 +80,6 @@ TEST(EdgeStoreTest, contract) {
   for (auto edge : edges) {
     node_id_t src = std::min(edge.src, edge.dst);
     node_id_t dst = std::max(edge.src, edge.dst);
-    ASSERT_NEQ(edges_added.find({src, dst}), edges_added.end());
+    ASSERT_NE(edges_added.find({src, dst}), edges_added.end());
   }
 }

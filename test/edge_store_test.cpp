@@ -45,7 +45,8 @@ TEST(EdgeStoreTest, contract) {
   size_t nodes = 1024;
   size_t skt_bytes = 1 << 20; // small enough to likely contract twice
   size_t num_subgraphs = 20;
-  EdgeStore edge_store(get_seed(), nodes, skt_bytes, num_subgraphs);
+  size_t seed = get_seed();
+  EdgeStore edge_store(seed, nodes, skt_bytes, num_subgraphs);
 
   std::set<Edge> edges_added;
 
@@ -69,6 +70,17 @@ TEST(EdgeStoreTest, contract) {
       ASSERT_TRUE(edges_added.insert({src, dst}).second);
     }
     auto more_upds = edge_store.insert_adj_edges(i, dsts);
+    node_id_t src = more_upds.src;
+    for (auto dst_data : more_upds.dsts_data) {
+      ++num_returned[edge_store.get_first_store_subgraph() - 1];
+      node_id_t s = std::min(src, dst_data.dst);
+      node_id_t d = std::max(src, dst_data.dst);
+      ASSERT_NE(edges_added.find({s, d}), edges_added.end());
+    }
+  }
+
+  while (edge_store.contract_in_progress()) {
+    auto more_upds = edge_store.vertex_advance_subgraph()
     node_id_t src = more_upds.src;
     for (auto dst_data : more_upds.dsts_data) {
       ++num_returned[edge_store.get_first_store_subgraph() - 1];

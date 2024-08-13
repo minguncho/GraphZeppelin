@@ -191,7 +191,18 @@ class Sketch {
   inline size_t get_buckets() const { return num_buckets; }
   inline size_t get_num_samples() const { return num_samples; }
 
-  static size_t calc_bkt_per_col(size_t n) { return ceil(log2(n)) + 1; }
+  // Original
+  //static size_t calc_bkt_per_col(size_t n) { return ceil(log2(n)) + 1; }
+  // FOR GPU: Avoid bkt_per_col = 32 due to high bank conflicts
+  static size_t calc_bkt_per_col(size_t n) { 
+    size_t temp = ceil(log2(n)) + 1; 
+    if (temp == 32) {
+      return temp + 1;
+    }
+    else {
+      return temp;
+    }
+  }
 
 #ifdef L0_SAMPLING
   static constexpr size_t default_cols_per_sample = 7;

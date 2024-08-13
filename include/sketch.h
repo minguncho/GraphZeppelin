@@ -196,7 +196,7 @@ class Sketch {
   // FOR GPU: Avoid bkt_per_col = 32 due to high bank conflicts
   static size_t calc_bkt_per_col(size_t n) { 
     size_t temp = ceil(log2(n)) + 1; 
-    if (temp == 32) {
+    if (temp % 32 == 0) {
       return temp + 1;
     }
     else {

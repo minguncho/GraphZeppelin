@@ -83,7 +83,7 @@ TEST(EdgeStoreTest, contract) {
   }
 
   while (edge_store.contract_in_progress()) {
-    auto more_upds = edge_store.vertex_advance_subgraph();
+    auto more_upds = edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
     node_id_t src = more_upds.src;
     for (auto dst_data : more_upds.dsts_data) {
       ++num_returned[edge_store.get_first_store_subgraph() - 1];

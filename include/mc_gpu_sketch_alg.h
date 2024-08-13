@@ -80,7 +80,7 @@ private:
 
   // helper functions for apply_update_batch()
   size_t get_and_apply_finished_stream(int thr_id);
-  void complete_update_batch(int thr_id, const TaggedUpdateBatch &updates, bool from_edge_store = false);
+  void complete_update_batch(int thr_id, const TaggedUpdateBatch &updates);
 
   std::mutex sketch_creation_lock;
 public:
@@ -175,7 +175,7 @@ public:
       std::cout << "  Sub-Graph " << graph_id << "(Sketch): " << subgraphs[graph_id].num_updates
                 << std::endl;
     }
-    std::cout << "  Adjacency list: " << edge_store.get_num_edges() << std::endl;
+    std::cout << "  Adjacency list:            " << edge_store.get_num_edges() << std::endl;
   }
 
   std::vector<Edge> get_adjlist_spanning_forests();

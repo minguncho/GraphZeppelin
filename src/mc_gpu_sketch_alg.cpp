@@ -53,33 +53,18 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
 // TODO: This function may need to divide the updates into multiple update batches.
 //       This is the case when a single vertex in edge store has O(n) updates.
 //       Could enforce that this is the caller's responsibility.
-void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates,
-                                           bool from_edge_store) {
+void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates) {
   int stream_id = get_and_apply_finished_stream(thr_id);
   int start_index = stream_id * batch_size;
-  size_t min_subgraph = 0;
-
-  node_id_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
-  if (edge_store_subgraphs == 0) {
-    std::cerr << "ERROR: Why are we in this function! complete_update_batch()" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  if (from_edge_store)
-    min_subgraph = edge_store_subgraphs - 1; // only apply edge store edges to last subgraph
+  size_t min_subgraph = updates.min_subgraph;
+  size_t first_es_subgraph = updates.first_es_subgraph;
 
   // do we need to allocate more sketches due to edge_store contraction
-  if (edge_store_subgraphs > cur_subgraphs) {
-    if (cur_subgraphs < edge_store_subgraphs - 1) {
-      std::cerr << "ERROR: Too many outstanding subgraph allocations. What is happening?" << std::endl;
-      std::cerr << "cur_subgraphs = " << cur_subgraphs << " es_subgraphs = " << edge_store_subgraphs << std::endl;
-      exit(EXIT_FAILURE);
-    }
-
+  if (first_es_subgraph > cur_subgraphs) {
     sketch_creation_lock.lock();
 
     // double check to ensure no one else performed the allocation 
-    if (edge_store_subgraphs > cur_subgraphs) {
+    if (first_es_subgraph > cur_subgraphs) {
       create_sketch_graph(cur_subgraphs);
 
       CudaUpdateParams* params;
@@ -100,7 +85,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   std::vector<size_t> sketch_update_size(max_sketch_graphs);
   node_id_t max_subgraph = 0;
   for (auto dst_data : dsts_data) {
-    node_id_t update_subgraphs = std::min(dst_data.subgraph, edge_store_subgraphs - 1);
+    node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
     max_subgraph = std::max(update_subgraphs, max_subgraph);
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_data.dst));
 
@@ -158,7 +143,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 
   // Perform adjacency list updates
   TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, store_edges);
-  if (sketch_edges.size() > 0) complete_update_batch(thr_id, {src_vertex, sketch_edges});
+  if (sketch_edges.size() > 0)
+    complete_update_batch(thr_id, {src_vertex, 0, edge_store_subgraphs, sketch_edges});
   if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds, true);
 }
 

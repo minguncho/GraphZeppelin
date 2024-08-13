@@ -56,7 +56,7 @@ class EdgeStore {
 
   // contract vertex data by removing all updates bound for lower subgraphs than the store 
   // is responsible for
-  TaggedUpdateBatch vertex_advance_subgraph(size_t cur_first_es_subgraph);
+  TaggedUpdateBatch vertex_advance_subgraph(node_id_t cur_first_es_subgraph);
 
   // Get methods
   size_t get_num_edges() {

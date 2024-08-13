@@ -56,8 +56,13 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
 void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates) {
   int stream_id = get_and_apply_finished_stream(thr_id);
   int start_index = stream_id * batch_size;
-  size_t min_subgraph = updates.min_subgraph;
-  size_t first_es_subgraph = updates.first_es_subgraph;
+  node_id_t min_subgraph = updates.min_subgraph;
+  node_id_t first_es_subgraph = updates.first_es_subgraph;
+
+  if (first_es_subgraph == 0) {
+    std::cerr << "Why are we here??" << std::endl;
+    exit(EXIT_FAILURE);
+  }
 
   // do we need to allocate more sketches due to edge_store contraction
   if (first_es_subgraph > cur_subgraphs) {
@@ -121,7 +126,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // We only have an adjacency list so just directly insert
   if (edge_store_subgraphs == 0) {
     TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices);
-    if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds, true);
+    if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
     return;
   }
 
@@ -145,7 +150,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, store_edges);
   if (sketch_edges.size() > 0)
     complete_update_batch(thr_id, {src_vertex, 0, edge_store_subgraphs, sketch_edges});
-  if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds, true);
+  if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
@@ -153,9 +158,10 @@ void MCGPUSketchAlg::apply_flush_updates() {
 
   // first ensure that all pending contractions are moved out of the edge store.
   while (edge_store.contract_in_progress()) {
-    TaggedUpdateBatch more_upds = edge_store.vertex_advance_subgraph();
+    TaggedUpdateBatch more_upds =
+        edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
 
-    if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds, true);
+    if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds);
   }
 
   // ensure streams have finished applying updates

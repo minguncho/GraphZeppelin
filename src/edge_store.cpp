@@ -29,10 +29,11 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                                    const std::vector<node_id_t> &dst_vertices) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
+  node_id_t cur_first_es_subgraph;
   num_inserted += dst_vertices.size();
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    size_t cur_first_es_subgraph = cur_subgraph;
+    cur_first_es_subgraph = cur_subgraph;
     if (true_min_subgraph < cur_subgraph && !vertex_contracted[src]) {
       ret = vertex_contract(src);
     }
@@ -73,10 +74,11 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                               const std::vector<SubgraphTaggedUpdate> &dst_data) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
+  node_id_t cur_first_es_subgraph;
   num_inserted += dst_data.size();
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
-    size_t cur_first_es_subgraph = cur_subgraph;
+    cur_first_es_subgraph = cur_subgraph;
     if (true_min_subgraph < cur_first_es_subgraph && !vertex_contracted[src]) {
       ret = vertex_contract(src);
     }
@@ -173,7 +175,7 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
   return ret;
 }
 
-TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(size_t cur_first_es_subgraph) {
+TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subgraph) {
   node_id_t src = 0;
   while (true) {
     src = needs_contraction.fetch_add(1);
@@ -184,7 +186,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(size_t cur_first_es_subgrap
         verify_contract_complete();
         ++true_min_subgraph;
       }
-      return {0, std::vector<SubgraphTaggedUpdate>()};
+      return {0, cur_first_es_subgraph, cur_first_es_subgraph std::vector<SubgraphTaggedUpdate>()};
     }
 
     std::lock_guard<std::mutex> lk(adj_mutex[src]);

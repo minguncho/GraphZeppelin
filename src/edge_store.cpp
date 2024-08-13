@@ -47,7 +47,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
         ret.push_back(data); // add everything in dst_vertices to ret
         num_returned++;
 
-        if (data.subgraph == 0) continue; // skip stuff that shouldn't be added
+        if (data.subgraph < cur_first_es_subgraph) continue; // skip stuff that shouldn't be added
       }
 
       if (!adjlist[src].insert(data).second) {
@@ -88,7 +88,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
     }
 
     for (auto data : dst_data) {
-      if (caller_first_es_subgraph < cur_first_es_subgraph) {
+      if (data.subgraph < caller_first_es_subgraph) {
         ret.push_back(data); // add everything in dst_vertices to ret
         num_returned++;
 

@@ -78,7 +78,8 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
       params = new CudaUpdateParams(
          num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
          num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
-      subgraphs.push_back({0, params});
+      subgraphs[cur_subgraphs].num_updates = 0;
+      subgraphs[cur_subgraphs].cudeUpdateParams = params;
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
 
@@ -147,7 +148,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   }
 
   // Perform adjacency list updates
-  TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, store_edges);
+  TaggedUpdateBatch more_upds =
+      edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges);
   if (sketch_edges.size() > 0)
     complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
   if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);

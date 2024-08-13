@@ -20,7 +20,7 @@ struct SketchParams {
 };
 
 struct SketchSubgraph {
-  size_t num_updates;
+  std::atomic<size_t> num_updates;
   CudaUpdateParams* cudaUpdateParams;
 };
 
@@ -46,7 +46,7 @@ private:
   int max_sketch_graphs; // Max. number of subgraphs that can be in sketch graphs
 
   // sketch subgraphs
-  std::vector<SketchSubgraph> subgraphs;
+  SketchSubgraph *subgraphs;
 
   // lossless edge storage
   EdgeStore edge_store;
@@ -107,6 +107,7 @@ public:
     num_subgraphs = _num_subgraphs;
     cur_subgraphs = 0;
     max_sketch_graphs = _max_sketch_graphs;
+    subgraphs = new SketchSubgraph[max_sketch_graphs];
 
     // Extract sketchParams variables
     num_samples = sketchParams.num_samples;
@@ -155,6 +156,10 @@ public:
     std::cout << "Finished MCGPUSketchAlg's Initialization" << std::endl;
     std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
     std::cout << "MCGPUSketchAlg's Initialization Duration: " << init_time.count() << std::endl;
+  }
+
+  ~MCGPUSketchAlg() {
+    delete[] subgraphs;
   }
 
   /**

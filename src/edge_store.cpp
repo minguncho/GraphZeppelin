@@ -25,6 +25,7 @@ EdgeStore::~EdgeStore() {
   delete[] adj_mutex;
 }
 
+// caller_first_es_subgraph is implied to be 0 when calling this function
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
                                                    const std::vector<node_id_t> &dst_vertices) {
   int edges_delta = 0;
@@ -42,21 +43,23 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       auto idx = concat_pairing_fn(src, dst);
       SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
 
-      if (data.subgraph < cur_first_es_subgraph) {
-        ret.push_back(data);
+      if (cur_first_es_subgraph > 0) {
+        ret.push_back(data); // add everything in dst_vertices to ret
         num_returned++;
-      } else {
-        if (!adjlist[src].insert(data).second) {
-          // Current edge already exist, so delete
-          if (adjlist[src].erase(data) == 0) {
-            std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
-            exit(EXIT_FAILURE);
-          }
-          edges_delta--;
-          num_duplicate++;
-        } else {
-          edges_delta++;
+
+        if (data.subgraph == 0) continue; // skip stuff that shouldn't be added
+      }
+
+      if (!adjlist[src].insert(data).second) {
+        // Current edge already exist, so delete
+        if (adjlist[src].erase(data) == 0) {
+          std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
+          exit(EXIT_FAILURE);
         }
+        edges_delta--;
+        num_duplicate++;
+      } else {
+        edges_delta++;
       }
     }
   }
@@ -71,7 +74,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
 }
 
-TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
+TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_first_es_subgraph,
                                               const std::vector<SubgraphTaggedUpdate> &dst_data) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
@@ -85,21 +88,23 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     }
 
     for (auto data : dst_data) {
-      if (data.subgraph < cur_first_es_subgraph) {
-        ret.push_back(data);
+      if (caller_first_es_subgraph < cur_first_es_subgraph) {
+        ret.push_back(data); // add everything in dst_vertices to ret
         num_returned++;
-      } else {
-        if (!adjlist[src].insert(data).second) {
-          // Current edge already exist, so delete
-          if (adjlist[src].erase(data) == 0) {
-            std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
-            exit(EXIT_FAILURE);
-          }
-          edges_delta--;
-          num_duplicate++;
-        } else {
-          edges_delta++;
+
+        if (data.subgraph < cur_first_es_subgraph) continue; // skip stuff that shouldn't be added
+      }
+
+      if (!adjlist[src].insert(data).second) {
+        // Current edge already exist, so delete
+        if (adjlist[src].erase(data) == 0) {
+          std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
+          exit(EXIT_FAILURE);
         }
+        edges_delta--;
+        num_duplicate++;
+      } else {
+        edges_delta++;
       }
     }
   }

@@ -34,7 +34,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     cur_first_es_subgraph = cur_subgraph;
-    if (true_min_subgraph < cur_subgraph && !vertex_contracted[src]) {
+    if (true_min_subgraph < cur_first_es_subgraph && !vertex_contracted[src]) {
       ret = vertex_contract(src);
     }
 
@@ -42,7 +42,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
       auto idx = concat_pairing_fn(src, dst);
       SubgraphTaggedUpdate data = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
 
-      if (data.subgraph < cur_subgraph) {
+      if (data.subgraph < cur_first_es_subgraph) {
         ret.push_back(data);
         num_returned++;
       } else {

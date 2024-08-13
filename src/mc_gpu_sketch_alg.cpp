@@ -121,10 +121,10 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 
   num_updates_seen += dst_vertices.size();
 
-  node_id_t edge_store_subgraphs = edge_store.get_first_store_subgraph();
+  node_id_t first_es_subgraph = edge_store.get_first_store_subgraph();
 
   // We only have an adjacency list so just directly insert
-  if (edge_store_subgraphs == 0) {
+  if (first_es_subgraph == 0) {
     TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices);
     if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
     return;
@@ -139,7 +139,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_vertices[i]));
     size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, 0, num_subgraphs-1);
 
-    if (subgraph >= edge_store_subgraphs) {
+    if (subgraph >= first_es_subgraph) {
       // Adj. list
       store_edges.push_back({subgraph, dst_vertices[i]});
     }
@@ -149,7 +149,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // Perform adjacency list updates
   TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, store_edges);
   if (sketch_edges.size() > 0)
-    complete_update_batch(thr_id, {src_vertex, 0, edge_store_subgraphs, sketch_edges});
+    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
   if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
 }
 

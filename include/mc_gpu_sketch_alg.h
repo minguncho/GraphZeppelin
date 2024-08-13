@@ -175,7 +175,7 @@ public:
     std::cout << "  Sub-Graph " << graph_id << "(Sketch): " << subgraphs[graph_id].num_updates
                 << std::endl;
     }
-    std::cout << "  Adjacency list:     " << edge_store.get_num_edges() << std::endl;
+    std::cout << "  Adjacency list:      " << edge_store.get_num_edges() << std::endl;
   }
 
   std::vector<Edge> get_adjlist_spanning_forests();

@@ -61,7 +61,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
   if (first_es_subgraph == 0) {
     std::cerr << "Why are we here??" << std::endl;
-    exit(EXIT_FAILURE);
+    throw std::runtime_error("gross");
   }
 
   // do we need to allocate more sketches due to edge_store contraction

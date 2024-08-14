@@ -39,7 +39,9 @@ class EdgeStore {
   std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);
   void check_if_too_big();
 
-  void verify_contract_complete(); // TODO: REMOVE CALLS TO THIS DEBUG FUNCTION LATER
+#ifdef VERIFY_SAMPLES_F
+  void verify_contract_complete();
+#endif
  public:
 
   // Constructor

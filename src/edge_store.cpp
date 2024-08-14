@@ -132,6 +132,7 @@ std::vector<Edge> EdgeStore::get_edges() {
   return ret;
 }
 
+#ifdef VERIFY_SAMPLES_F
 void EdgeStore::verify_contract_complete() {
   for (size_t i = 0; i < num_vertices; i++) {
     std::lock_guard<std::mutex> lk(adj_mutex[i]);
@@ -146,6 +147,7 @@ void EdgeStore::verify_contract_complete() {
   std::cerr << "Contraction verified!" << std::endl;
   stats();
 }
+#endif
 
 // the thread MUST hold the lock on src before calling this function
 std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
@@ -189,8 +191,10 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
     
     if (src >= num_vertices) {
       if (src == num_vertices) {
+#ifdef VERIFY_SAMPLES_F
         std::lock_guard<std::mutex> lk(contract_lock);
         verify_contract_complete();
+#endif
         ++true_min_subgraph;
       }
       return {0, cur_first_es_subgraph - 1, cur_first_es_subgraph, std::vector<SubgraphTaggedUpdate>()};

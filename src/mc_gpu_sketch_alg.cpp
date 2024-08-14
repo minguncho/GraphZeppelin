@@ -79,7 +79,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
          num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
          num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
       subgraphs[cur_subgraphs].num_updates = 0;
-      subgraphs[cur_subgraphs].cudeUpdateParams = params;
+      subgraphs[cur_subgraphs].cudaUpdateParams = params;
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
 

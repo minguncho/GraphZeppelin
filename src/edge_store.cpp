@@ -215,16 +215,19 @@ void EdgeStore::check_if_too_big() {
   }
 
   // we may need to perform a contraction
-  std::lock_guard<std::mutex> lk(contract_lock);
-  if (true_min_subgraph < cur_subgraph) {
-    // another thread already started contraction
-    return;
+  {
+    std::lock_guard<std::mutex> lk(contract_lock);
+    if (true_min_subgraph < cur_subgraph) {
+      // another thread already started contraction
+      return;
+    }
+
+    for (node_id_t i = 0; i < num_vertices; i++) {
+      vertex_contracted[i] = false;
+    }
+    needs_contraction = 0;
   }
 
-  for (node_id_t i = 0; i < num_vertices; i++) {
-    vertex_contracted[i] = false;
-  }
-  needs_contraction = 0;
   cur_subgraph++;
 
   std::cerr << "EdgeStore: Contracting to subgraphs " << cur_subgraph << " and above" << std::endl;

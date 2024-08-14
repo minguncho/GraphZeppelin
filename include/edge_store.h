@@ -21,7 +21,9 @@ class EdgeStore {
 
   std::vector<std::set<SubgraphTaggedUpdate>> adjlist;
 
-  std::vector<bool> vertex_contracted;
+  // This is a vector of booleans BUT we don't want to use vector<bool> because its not
+  // multithread friendly
+  std::vector<char> vertex_contracted;
 
   std::atomic<int> num_inserted;
   std::atomic<int> num_duplicate;

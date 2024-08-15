@@ -54,8 +54,6 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
 //       This is the case when a single vertex in edge store has O(n) updates.
 //       Could enforce that this is the caller's responsibility.
 void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates) {
-  int stream_id = get_and_apply_finished_stream(thr_id);
-  int start_index = stream_id * batch_size;
   node_id_t min_subgraph = updates.min_subgraph;
   node_id_t first_es_subgraph = updates.first_es_subgraph;
 
@@ -88,31 +86,44 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
-  std::vector<size_t> sketch_update_size(max_sketch_graphs);
-  node_id_t max_subgraph = 0;
-  for (auto dst_data : dsts_data) {
-    node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
-    max_subgraph = std::max(update_subgraphs, max_subgraph);
-    vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_data.dst));
 
-    for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
-      subgraphs[graph_id].cudaUpdateParams->h_edgeUpdates[start_index + sketch_update_size[graph_id]] = edge_id;
-      sketch_update_size[graph_id]++;
+  size_t cur_pos = 0;
+
+  while (cur_pos < dsts_data.size()) {
+    int stream_id = get_and_apply_finished_stream(thr_id);
+    int start_index = stream_id * batch_size;
+
+    std::vector<size_t> sketch_update_size(max_sketch_graphs);
+    node_id_t max_subgraph = 0;
+
+    // limit amount we process here to a single batch
+    size_t num_to_process = std::min(batch_size, dsts_data.size() - cur_pos);
+    for (size_t i = cur_pos; i < cur_pos + num_to_process; i++) {
+      auto &dst_data = dsts_data[i];
+      node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
+      max_subgraph = std::max(update_subgraphs, max_subgraph);
+      vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_data.dst));
+
+      for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
+        subgraphs[graph_id].cudaUpdateParams->h_edgeUpdates[start_index + sketch_update_size[graph_id]] = edge_id;
+        sketch_update_size[graph_id]++;
+      }
     }
-  }
+    cur_pos += num_to_process;
 
-  // Go to every subgraph and apply sketch updates
-  streams[stream_id].src_vertex = src_vertex;
-  streams[stream_id].delta_applied = 0;
-  streams[stream_id].num_graphs = max_subgraph + 1;
+    // Go to every subgraph and apply sketch updates
+    streams[stream_id].src_vertex = src_vertex;
+    streams[stream_id].delta_applied = 0;
+    streams[stream_id].num_graphs = max_subgraph + 1;
 
-  for (int graph_id = min_subgraph; graph_id <= max_subgraph; graph_id++) {
-    subgraphs[graph_id].num_updates += sketch_update_size[graph_id];
-    CudaUpdateParams* cudaUpdateParams = subgraphs[graph_id].cudaUpdateParams;
-    cudaMemcpyAsync(&cudaUpdateParams->d_edgeUpdates[start_index], &cudaUpdateParams->h_edgeUpdates[start_index], sketch_update_size[graph_id] * sizeof(vec_t), cudaMemcpyHostToDevice, streams[stream_id].stream);
-    cudaKernel.k_sketchUpdate(num_device_threads, num_device_blocks, streams[stream_id].stream, cudaUpdateParams->d_edgeUpdates, start_index, sketch_update_size[graph_id], stream_id * num_buckets, cudaUpdateParams, cudaUpdateParams->d_bucket_a, cudaUpdateParams->d_bucket_c, sketchSeed);
-    cudaMemcpyAsync(&cudaUpdateParams->h_bucket_a[stream_id * num_buckets], &cudaUpdateParams->d_bucket_a[stream_id * num_buckets], num_buckets * sizeof(vec_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
-    cudaMemcpyAsync(&cudaUpdateParams->h_bucket_c[stream_id * num_buckets], &cudaUpdateParams->d_bucket_c[stream_id * num_buckets], num_buckets * sizeof(vec_hash_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
+    for (int graph_id = min_subgraph; graph_id <= max_subgraph; graph_id++) {
+      subgraphs[graph_id].num_updates += sketch_update_size[graph_id];
+      CudaUpdateParams* cudaUpdateParams = subgraphs[graph_id].cudaUpdateParams;
+      cudaMemcpyAsync(&cudaUpdateParams->d_edgeUpdates[start_index], &cudaUpdateParams->h_edgeUpdates[start_index], sketch_update_size[graph_id] * sizeof(vec_t), cudaMemcpyHostToDevice, streams[stream_id].stream);
+      cudaKernel.k_sketchUpdate(num_device_threads, num_device_blocks, streams[stream_id].stream, cudaUpdateParams->d_edgeUpdates, start_index, sketch_update_size[graph_id], stream_id * num_buckets, cudaUpdateParams, cudaUpdateParams->d_bucket_a, cudaUpdateParams->d_bucket_c, sketchSeed);
+      cudaMemcpyAsync(&cudaUpdateParams->h_bucket_a[stream_id * num_buckets], &cudaUpdateParams->d_bucket_a[stream_id * num_buckets], num_buckets * sizeof(vec_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
+      cudaMemcpyAsync(&cudaUpdateParams->h_bucket_c[stream_id * num_buckets], &cudaUpdateParams->d_bucket_c[stream_id * num_buckets], num_buckets * sizeof(vec_hash_t), cudaMemcpyDeviceToHost, streams[stream_id].stream);
+    }
   }
 }
 

@@ -16,8 +16,9 @@ private:
   
   int buffer_id = 0;
   size_t batch_offset = 0;
-  int batch_count = 0;
   size_t batch_size;
+  size_t batch_limit;
+  size_t batch_count = 0;
 
   size_t sketchSeed;
 
@@ -32,6 +33,6 @@ public:
 
   std::chrono::duration<double> wait_time = std::chrono::nanoseconds::zero();
   std::chrono::duration<double> process_time = std::chrono::nanoseconds::zero();
-  std::chrono::duration<double> buffer_time = std::chrono::nanoseconds::zero();
-  std::chrono::duration<double> edge_convert_time = std::chrono::nanoseconds::zero();
+  std::chrono::duration<double> edge_fill_time = std::chrono::nanoseconds::zero();
+  std::chrono::duration<double> prefetch_time = std::chrono::nanoseconds::zero();
 };

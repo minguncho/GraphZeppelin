@@ -35,8 +35,16 @@ private:
   int batch_size;
 
   // Number of batches in a buffer to accept until GPU kernel launch
-  int num_batch_per_buffer = 1080;
+  int num_batch_per_buffer = 540;
   CudaStream** cudaStreams;
+
+  std::chrono::duration<double> flush_time;
+
+  // kron_13 = 54
+  // kron_15 = 216
+  // kron_16 = 324
+  // kron_17 = 540
+  // kron_18 = 540
 
 public:
   CCGPUSketchAlg(node_id_t num_vertices, size_t num_updates, int num_threads, Bucket* buckets, size_t seed, SketchParams sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(num_vertices, seed, buckets, config){ 
@@ -85,7 +93,22 @@ public:
     // Prefetch sketches to GPU
     gpuErrchk(cudaMemPrefetchAsync(buckets, num_vertices * sketchParams.num_buckets * sizeof(Bucket), device_id));
 
+    /*size_t free_memory;
+    size_t total_memory;
+
+    cudaMemGetInfo(&free_memory, &total_memory);
     std::cout << "Finished CCGPUSketchAlg's Initialization\n";
+    std::cout << "Init - GPU Total Memory: " << (double)total_memory / 1000000000 << "GB\n";
+    std::cout << "Init - GPU Free (Available) Memory: " << (double)free_memory / 1000000000 << "GB\n";
+    std::cout << "Init - GPU Allocated Memory: " << (double)(total_memory - free_memory) / 1000000000 << "GB\n";
+
+    size_t sketch_bytes = num_vertices * sketchParams.num_buckets * sizeof(Bucket);
+    std::cout << "Allocating rest of the free memory in GPU: " << (double)(free_memory + (sketch_bytes * size)) / 1000000000 << "\n";
+    void* dummy_pointer;
+    gpuErrchk(cudaMalloc(&dummy_pointer, free_memory + (sketch_bytes * size)));
+    cudaMemGetInfo(&free_memory, &total_memory);
+    std::cout << "GPU Free (Available) Memory: " << (double)free_memory / 1000000000 << "GB\n";*/
+
     std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
     std::cout << "CCGPUSketchAlg's Initialization Duration: " << init_time.count() << std::endl;
   };
@@ -100,5 +123,6 @@ public:
                           const std::vector<node_id_t> &dst_vertices);
 
   void flush_buffers();
+  void display_time();
 
 };

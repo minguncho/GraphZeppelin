@@ -14,22 +14,28 @@ void CCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 void CCGPUSketchAlg::flush_buffers() {
 
   auto flush_start = std::chrono::steady_clock::now();
-  // Original Method
-  for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+  auto task = [&](int thr_id) {
     cudaStreams[thr_id]->flush_buffers();
-  }
+  };
+  std::vector<std::thread> threads;
+  for (size_t i = 0; i < num_host_threads; i++) threads.emplace_back(task, i);
 
+  // wait for threads to finish
+  for (size_t i = 0; i < num_host_threads; i++) threads[i].join();
   cudaDeviceSynchronize();
-  std::chrono::duration<double> flush_time = std::chrono::steady_clock::now() - flush_start;
+  flush_time = std::chrono::steady_clock::now() - flush_start;
+}
 
+
+void CCGPUSketchAlg::display_time() {
   int longest_thr_id = 0;
   double longest_process_time = 0;
   
   for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
     std::cout << "Thread # " << thr_id << ": " << cudaStreams[thr_id]->process_time.count() << "\n";
-    std::cout << "  Buffer Time: " << cudaStreams[thr_id]->buffer_time.count() << "\n";
-    std::cout << "    Edge Convert Time: " << cudaStreams[thr_id]->edge_convert_time.count() << "\n";
+    std::cout << "  Edge Fill Time: " << cudaStreams[thr_id]->edge_fill_time.count() << "\n";
     std::cout << "  CUDA Stream Wait Time: " << cudaStreams[thr_id]->wait_time.count() << "\n";
+    std::cout << "  Sketch Prefetch Time: " << cudaStreams[thr_id]->prefetch_time.count() << "\n";
 
     if (cudaStreams[thr_id]->process_time.count() > longest_process_time) {
       longest_process_time = cudaStreams[thr_id]->process_time.count();
@@ -38,8 +44,8 @@ void CCGPUSketchAlg::flush_buffers() {
   }
   std::cout << "\n";
   std::cout << "Longest Thread # " << longest_thr_id << ": " << cudaStreams[longest_thr_id]->process_time.count() << "\n";
-  std::cout << "  Buffer Time: " << cudaStreams[longest_thr_id]->buffer_time.count() << "\n";
-  std::cout << "    Edge Convert Time: " << cudaStreams[longest_thr_id]->edge_convert_time.count() << "\n";
+  std::cout << "  Edge Fill Time: " << cudaStreams[longest_thr_id]->edge_fill_time.count() << "\n";
   std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
-  std::cout << "GPU Flushing buffers time: " << flush_time.count() << "\n";
+  std::cout << "  Sketch Prefetch Time: " << cudaStreams[longest_thr_id]->prefetch_time.count() << "\n";
+  std::cout << "FLUSHING TIME: " << flush_time.count() << "\n";
 }

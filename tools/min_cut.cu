@@ -110,6 +110,11 @@ int main(int argc, char **argv) {
   sketchParams.bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_nodes));
   sketchParams.num_buckets = sketchParams.num_columns * sketchParams.bkt_per_col + 1;
 
+  std::cout << "num_samples: " << sketchParams.num_samples << "\n";
+  std::cout << "num_buckets: " << sketchParams.num_buckets << "\n";
+  std::cout << "num_columns: " << sketchParams.num_columns << "\n";
+  std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
+
   // Total bytes of sketching datastructure of one subgraph
   int w = 4; // 4 bytes when num_nodes < 2^32
   double sketch_bytes = 4 * w * num_nodes * ((2 * log2(num_nodes)) + 2) * ((reduced_k * log2(num_nodes))/(1 - log2(1.2)));
@@ -159,8 +164,12 @@ int main(int argc, char **argv) {
 
   Bucket* buckets;
   gpuErrchk(cudaMallocManaged(&buckets, max_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+  sketchParams.buckets = buckets;
 
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_updates, num_threads, buckets, reader_threads, get_seed(), sketchParams, num_graphs, min_adj_graphs, max_sketch_graphs, reduced_k, sketch_bytes, adjlist_edge_bytes, mc_config};
+  // Getting sketch seed
+  sketchParams.seed = get_seed();
+
+  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_updates, num_threads, reader_threads, sketchParams, num_graphs, min_adj_graphs, max_sketch_graphs, reduced_k, sketch_bytes, adjlist_edge_bytes, mc_config};
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};
 
   auto ins_start = std::chrono::steady_clock::now();
@@ -172,6 +181,7 @@ int main(int argc, char **argv) {
   driver.prep_query(KSPANNINGFORESTS);
   cudaDeviceSynchronize();
   mc_gpu_alg.flush_buffers();
+  cudaDeviceSynchronize();
   mc_gpu_alg.convert_adj_to_sketch();
   // Re-measure flush_end to include time taken for applying delta sketches from flushing
   auto flush_end = std::chrono::steady_clock::now();

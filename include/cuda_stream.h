@@ -3,7 +3,7 @@
 
 class CudaStream {
 private:
-  CudaUpdateParams* cudaUpdateParams;
+  SketchParams sketchParams;
   cudaStream_t stream;
 
   CudaKernel cudaKernel;
@@ -26,7 +26,7 @@ private:
 
 public:
   // Constructor
-  CudaStream(int num_device_threads, int num_batch_per_buffer, size_t batch_sizes, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed);
+  CudaStream(int num_device_threads, int num_batch_per_buffer, size_t batch_sizes, SketchParams sketchParams);
 
   void process_batch(node_id_t src_vertex, const std::vector<node_id_t> &dst_vertices);
   void flush_buffers();

@@ -4,10 +4,9 @@
 
 // Constructor
 MCSubgraph::MCSubgraph(int graph_id, node_id_t num_nodes, int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-                       CudaUpdateParams* cudaUpdateParams, GraphType type, size_t batch_size, size_t sketchSeed)
+                       SketchParams _sketchParams, GraphType type, size_t batch_size)
     : graph_id(graph_id),
       num_host_threads(num_host_threads),
-      cudaUpdateParams(cudaUpdateParams),
       type(type),
       num_nodes(num_nodes),
       adjlist(num_nodes) {
@@ -18,10 +17,14 @@ MCSubgraph::MCSubgraph(int graph_id, node_id_t num_nodes, int num_host_threads, 
 
   adj_mutex = new std::mutex[num_nodes];
 
+  // Rewrite address for buckets 
+  sketchParams = _sketchParams;
+  sketchParams.buckets = &sketchParams.buckets[graph_id * num_nodes * sketchParams.num_buckets];
+
   // Initialize CUDA Streams
   cudaStreams = new CudaStream*[num_host_threads];
   for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
-    cudaStreams[thr_id] = new CudaStream(num_device_threads, num_batch_per_buffer, batch_size, cudaUpdateParams, sketchSeed);
+    cudaStreams[thr_id] = new CudaStream(num_device_threads, num_batch_per_buffer, batch_size, sketchParams);
   }
 }
 

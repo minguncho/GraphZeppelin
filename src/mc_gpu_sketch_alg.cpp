@@ -107,7 +107,7 @@ void MCGPUSketchAlg::convert_adj_to_sketch() {
   auto conversion_start = std::chrono::steady_clock::now();
 
   // Rewrite GPU Kernel Shared Memory's size
-  size_t maxBytes = num_buckets * sizeof(vec_t) + num_buckets * sizeof(vec_hash_t);
+  size_t maxBytes = sketchParams.num_buckets * sizeof(vec_t) + sketchParams.num_buckets * sizeof(vec_hash_t);
   cudaKernel.updateSharedMemory(maxBytes);
 
   for (int graph_id = 0; graph_id < num_sketch_graphs; graph_id++) {
@@ -157,7 +157,7 @@ void MCGPUSketchAlg::convert_adj_to_sketch() {
     gpuErrchk(cudaMemcpy(d_update_start_index, h_update_start_index.data(), batch_count * sizeof(vec_t), cudaMemcpyHostToDevice));
 
     gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, subgraphs[graph_id]->get_num_adj_edges() * sizeof(node_id_t), cudaMemcpyHostToDevice));
-    cudaKernel.single_sketchUpdate(num_device_threads, batch_count, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, subgraphs[graph_id]->get_cudaUpdateParams(), sketchSeed);
+    cudaKernel.single_sketchUpdate(num_device_threads, batch_count, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, subgraphs[graph_id]->get_sketchParams());
     cudaDeviceSynchronize();
 
     indiv_conversion_time.push_back(std::chrono::steady_clock::now() - indiv_conversion_start);

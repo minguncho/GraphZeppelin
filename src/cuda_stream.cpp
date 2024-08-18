@@ -2,8 +2,8 @@
 #include "util.h"
 
 // Constructor
-CudaStream::CudaStream(int num_device_threads, int num_batch_per_buffer, size_t batch_size, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed)
-    : num_device_threads(num_device_threads), num_batch_per_buffer(num_batch_per_buffer), batch_size(batch_size), cudaUpdateParams(cudaUpdateParams), sketchSeed(sketchSeed) {
+CudaStream::CudaStream(int num_device_threads, int num_batch_per_buffer, size_t batch_size, SketchParams sketchParams)
+    : num_device_threads(num_device_threads), num_batch_per_buffer(num_batch_per_buffer), batch_size(batch_size), sketchParams(sketchParams) {
 
   // Initialize CudaStream
   cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
@@ -49,12 +49,12 @@ void CudaStream::process_batch(node_id_t src_vertex, const std::vector<node_id_t
     // Prefetch sketches to GPU
     /*auto prefetch_start = std::chrono::steady_clock::now();
     for (int batch_id = 0; batch_id < batch_count; batch_id++) {
-      gpuErrchk(cudaMemPrefetchAsync(&cudaUpdateParams->buckets[h_update_src[batch_id] * cudaUpdateParams->num_buckets], cudaUpdateParams->num_buckets * sizeof(Bucket), 0, stream));
+      gpuErrchk(cudaMemPrefetchAsync(&(sketchParams.buckets[h_update_src[batch_id] * sketchParams.num_buckets]), sketchParams.num_buckets * sizeof(Bucket), 0, stream));
     }
     prefetch_time += std::chrono::steady_clock::now() - prefetch_start;*/
 
     // Launch GPU kernel
-    cudaKernel.sketchUpdate(num_device_threads, batch_count, stream, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, cudaUpdateParams, sketchSeed);
+    cudaKernel.sketchUpdate(num_device_threads, batch_count, stream, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
 
     // Reset variables
     batch_count = 0;
@@ -106,5 +106,5 @@ void CudaStream::flush_buffers() {
   gpuErrchk(cudaMemcpyAsync(d_update_src, &h_update_src[start_index], num_batches_left * sizeof(node_id_t), cudaMemcpyHostToDevice, stream));
   gpuErrchk(cudaMemcpyAsync(d_update_start_index, &h_update_start_index[start_index], num_batches_left * sizeof(vec_t), cudaMemcpyHostToDevice, stream));
 
-  cudaKernel.sketchUpdate(num_device_threads, num_batches_left, stream, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, cudaUpdateParams, sketchSeed);
+  cudaKernel.sketchUpdate(num_device_threads, num_batches_left, stream, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
 }

@@ -7,26 +7,12 @@
 #include "cc_sketch_alg.h"
 #include "cuda_kernel.cuh"
 
-struct SketchParams {
-  size_t num_samples;
-  size_t num_buckets;
-  size_t num_columns;
-  size_t bkt_per_col;
-};
-
 class SKGPUSketchAlg : public CCSketchAlg{
 private:
-  CudaUpdateParams* cudaUpdateParams;
-  size_t sketchSeed;
+  SketchParams sketchParams;
   size_t maxBytes;
 
   CudaKernel cudaKernel;
-
-  // Variables from sketch
-  size_t num_samples;
-  size_t num_buckets;
-  size_t num_columns;
-  size_t bkt_per_col;
 
   node_id_t num_nodes;
   size_t num_updates;
@@ -34,8 +20,6 @@ private:
   // Number of threads and thread blocks for CUDA kernel
   int num_device_threads;
   int num_device_blocks;
-
-  int device_id;
 
   // Number of CPU's graph workers
   int num_host_threads;
@@ -59,7 +43,7 @@ private:
   std::atomic<uint64_t> batch_count;
 
 public:
-  SKGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, Bucket* buckets, size_t seed, SketchParams sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, seed, buckets, config){ 
+  SKGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.seed, _sketchParams.buckets, config){ 
 
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
@@ -71,13 +55,7 @@ public:
     batch_count = 0;
     
     num_host_threads = num_threads;
-    sketchSeed = seed;
-
-    // Get variables from sketch
-    num_samples = sketchParams.num_samples;
-    num_columns = sketchParams.num_columns;
-    bkt_per_col = sketchParams.bkt_per_col;
-    num_buckets = sketchParams.num_buckets;
+    sketchParams = _sketchParams;
 
     batch_size = get_desired_updates_per_batch();
     std::cout << "Batch Size: " << batch_size << "\n";
@@ -91,12 +69,8 @@ public:
     std::cout << "CUDA Device ID: " << device_id << "\n";
     std::cout << "CUDA Device Number of SMs: " << deviceProp.multiProcessorCount << "\n"; 
 
-    // Create cudaUpdateParams
-    gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
-    cudaUpdateParams = new CudaUpdateParams(num_nodes, num_updates, buckets, num_samples, num_buckets, num_columns, bkt_per_col, num_threads, batch_size);
-
     // Set maxBytes for GPU kernel's shared memory
-    maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
+    maxBytes = (sketchParams.num_buckets * sizeof(vec_t_cu)) + (sketchParams.num_buckets * sizeof(vec_hash_t));
     cudaKernel.updateSharedMemory(maxBytes);
     std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
 
@@ -108,8 +82,8 @@ public:
     memset(h_edgeUpdates, 0, 2 * num_updates * sizeof(node_id_t));
 
     // Prefetch sketches to GPU
-    gpuErrchk(cudaMemPrefetchAsync(buckets, num_nodes * num_buckets * sizeof(Bucket), device_id));
-    std::cout << "Bucket Memory Bytes: " << (double)(num_nodes * num_buckets * sizeof(Bucket)) / 1000000000 << "GB\n";
+    gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
+    std::cout << "Bucket Memory Bytes: " << (double)(num_nodes * sketchParams.num_buckets * sizeof(Bucket)) / 1000000000 << "GB\n";
 
     std::cout << "Finished SKGPUSketchAlg's Initialization\n";
     std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;

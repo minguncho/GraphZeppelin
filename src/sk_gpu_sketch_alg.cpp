@@ -52,16 +52,16 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
   int min_device_block = (batch_count / num_device_threads) + 1;
 
   /*for (int i = 1; i <= 100; i++) {
-    memset(cudaUpdateParams->buckets, 0, num_nodes * num_buckets * sizeof(Bucket));
+    memset(sketchParams.buckets, 0, num_nodes * num_buckets * sizeof(Bucket));
     // Prefetch sketches to GPU
-    gpuErrchk(cudaMemPrefetchAsync(cudaUpdateParams->buckets, num_nodes * num_buckets * sizeof(Bucket), device_id));
+    gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * num_buckets * sizeof(Bucket), device_id));
 
     //num_device_blocks = i * min_device_block * 10;
     num_device_blocks = i * 10;
     // Launch GPU kernel
     std::cout << "Launching GPU Kernel... Iteration: " << i << " num_device_blocks = " << num_device_blocks;
     auto kernel_start = std::chrono::steady_clock::now();
-    cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, num_thread_blocks_per_batch, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, cudaUpdateParams, sketchSeed);
+    cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, num_thread_blocks_per_batch, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
     cudaDeviceSynchronize();
     auto kernel_end = std::chrono::steady_clock::now();
     
@@ -77,7 +77,7 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
   std::cout << "Num GPU thread blocks: " << num_device_blocks << "\n";
   std::cout << "Launching GPU Kernel...\n";
   auto kernel_start = std::chrono::steady_clock::now();
-  cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, cudaUpdateParams, sketchSeed);
+  cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
   cudaDeviceSynchronize();
   auto kernel_end = std::chrono::steady_clock::now();
   
@@ -87,5 +87,5 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
   std::cout << "    Throughput: " << num_updates / kernel_time.count() << "\n";
 
   // Prefecth buffers back to CPU
-  gpuErrchk(cudaMemPrefetchAsync(cudaUpdateParams->buckets, num_nodes * num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+  gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
 }

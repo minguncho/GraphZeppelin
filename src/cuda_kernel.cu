@@ -194,15 +194,15 @@ __global__ void sketchUpdate_kernel(node_id_t* update_src, vec_t* update_sizes, 
   
 }
 
-void CudaKernel::sketchUpdate(int num_threads, int num_blocks, cudaStream_t stream, node_id_t *edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, long sketchSeed) {
-  size_t bkt_per_col = cudaUpdateParams[0].bkt_per_col;
-  size_t num_columns = cudaUpdateParams[0].num_columns;
-  size_t num_buckets = cudaUpdateParams[0].num_buckets;
+void CudaKernel::sketchUpdate(int num_threads, int num_blocks, cudaStream_t stream, node_id_t *edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, SketchParams sketchParams) {
+  size_t bkt_per_col = sketchParams.bkt_per_col;
+  size_t num_columns = sketchParams.num_columns;
+  size_t num_buckets = sketchParams.num_buckets;
 
   // Set maxBytes for GPU kernel's shared memory
   size_t maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
 
-  sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes, stream>>>(update_src, update_sizes, update_start_index, edgeUpdates, cudaUpdateParams[0].buckets, num_buckets, num_columns, bkt_per_col, sketchSeed);
+  sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes, stream>>>(update_src, update_sizes, update_start_index, edgeUpdates, sketchParams.buckets, num_buckets, num_columns, bkt_per_col, sketchParams.seed);
 }
 
 __global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_batches, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_indexes, node_id_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
@@ -254,15 +254,15 @@ __global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_b
   
 }
 
-void CudaKernel::single_sketchUpdate(int num_threads, int num_blocks, size_t num_batches, node_id_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, CudaUpdateParams* cudaUpdateParams, size_t sketchSeed) {
-  size_t bkt_per_col = cudaUpdateParams[0].bkt_per_col;
-  size_t num_columns = cudaUpdateParams[0].num_columns;
-  size_t num_buckets = cudaUpdateParams[0].num_buckets;
+void CudaKernel::single_sketchUpdate(int num_threads, int num_blocks, size_t num_batches, node_id_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, SketchParams sketchParams) {
+  size_t bkt_per_col = sketchParams.bkt_per_col;
+  size_t num_columns = sketchParams.num_columns;
+  size_t num_buckets = sketchParams.num_buckets;
 
   // Set maxBytes for GPU kernel's shared memory
   size_t maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
 
-  single_sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes>>>(num_blocks, num_batches, update_src, update_sizes, update_start_index, edgeUpdates, cudaUpdateParams[0].buckets, num_buckets, num_columns, bkt_per_col, sketchSeed);
+  single_sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes>>>(num_blocks, num_batches, update_src, update_sizes, update_start_index, edgeUpdates, sketchParams.buckets, num_buckets, num_columns, bkt_per_col, sketchParams.seed);
 }
 
 void CudaKernel::updateSharedMemory(size_t maxBytes) {

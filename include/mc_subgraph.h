@@ -14,7 +14,7 @@ enum GraphType {
 class MCSubgraph {
  private:
   int graph_id;
-  CudaUpdateParams* cudaUpdateParams;
+  SketchParams sketchParams;
   std::atomic<GraphType> type;
   node_id_t num_nodes;
 
@@ -34,7 +34,7 @@ class MCSubgraph {
 
   // Constructor
   MCSubgraph(int graph_id, node_id_t num_nodes, int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-             CudaUpdateParams* cudaUpdateParams, GraphType type, size_t batch_size, size_t sketchSeed);
+             SketchParams sketchParams, GraphType type, size_t batch_size);
   MCSubgraph(int graph_id, node_id_t num_nodes, int num_host_threads, GraphType type);
   ~MCSubgraph();
 
@@ -43,7 +43,7 @@ class MCSubgraph {
   void flush_sketch_buffers();
 
   // Get methods
-  CudaUpdateParams* get_cudaUpdateParams() { return cudaUpdateParams; }
+  SketchParams get_sketchParams() { return sketchParams; }
   GraphType get_type() { return type; }
   size_t get_num_updates() {
     if (type == SKETCH) {

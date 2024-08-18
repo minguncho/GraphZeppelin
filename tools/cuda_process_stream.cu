@@ -101,13 +101,17 @@ int main(int argc, char **argv) {
   // Allocate memory for buckets
   Bucket* buckets;
   gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+  sketchParams.buckets = buckets;
   std::cout << "Size of graph sketch: " << (double)(num_nodes * sketchParams.num_buckets * sizeof(Bucket)) / 1000000000 << "GB\n";
+
+  // Getting sketch seed
+  sketchParams.seed = get_seed();
   
   auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
   driver_config.gutter_conf().buffer_exp(20).queue_factor(8).wq_batch_per_elm(32);
   auto cc_config = CCAlgConfiguration().batch_factor(1);
 
-  CCGPUSketchAlg cc_gpu_alg{num_nodes, num_updates, num_threads, buckets, get_seed(), sketchParams, cc_config};
+  CCGPUSketchAlg cc_gpu_alg{num_nodes, num_updates, num_threads, sketchParams, cc_config};
   GraphSketchDriver<CCGPUSketchAlg> driver{&cc_gpu_alg, &stream, driver_config, reader_threads};
   
   auto ins_start = std::chrono::steady_clock::now();
@@ -125,7 +129,7 @@ int main(int argc, char **argv) {
   cc_gpu_alg.display_time();
   
   // Prefetch sketches back to CPU
-  gpuErrchk(cudaMemPrefetchAsync(buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+  gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
 
   auto CC_num = cc_gpu_alg.connected_components().size();
 

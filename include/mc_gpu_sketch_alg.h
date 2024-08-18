@@ -6,25 +6,12 @@
 #include "cuda_kernel.cuh"
 #include "mc_subgraph.h"
 
-struct SketchParams {
-  size_t num_samples;
-  size_t num_buckets;
-  size_t num_columns;
-  size_t bkt_per_col;  
-};
-
 class MCGPUSketchAlg : public MCSketchAlg {
 private:
   MCSubgraph** subgraphs;
-  size_t sketchSeed;
+  SketchParams sketchParams;
 
   CudaKernel cudaKernel;
-
-  // Variables from sketch
-  size_t num_samples;
-  size_t num_buckets;
-  size_t num_columns;
-  size_t bkt_per_col;
 
   node_id_t num_nodes;
   int k;
@@ -63,18 +50,18 @@ private:
 
 public:
   std::atomic<int> batch_sizes;
-  MCGPUSketchAlg(node_id_t num_vertices, size_t num_updates, int num_threads, Bucket* buckets,
-                               int _num_reader_threads, size_t seed, SketchParams sketchParams,
+  MCGPUSketchAlg(node_id_t _num_nodes, size_t num_updates, int num_threads,
+                               int _num_reader_threads, SketchParams _sketchParams,
                                int _num_graphs, int _min_adj_graphs, int _max_sketch_graphs, int _k,
                                double _sketch_bytes, double _adjlist_edge_bytes,
                                CCAlgConfiguration config)
-    : MCSketchAlg(num_vertices, seed, buckets, _max_sketch_graphs, config) {
+    : MCSketchAlg(_num_nodes, _sketchParams.seed, _sketchParams.buckets, _max_sketch_graphs, config) {
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
     batch_sizes = 0;
 
-    sketchSeed = seed;
-    num_nodes = num_vertices;
+    sketchParams = _sketchParams;
+    num_nodes = _num_nodes;
     k = _k;
     sketches_factor = config.get_sketches_factor();
     num_host_threads = num_threads;
@@ -90,17 +77,6 @@ public:
 
     sketch_bytes = _sketch_bytes;
     adjlist_edge_bytes = _adjlist_edge_bytes;
-
-    // Extract sketchParams variables
-    num_samples = sketchParams.num_samples;
-    num_columns = sketchParams.num_columns;
-    bkt_per_col = sketchParams.bkt_per_col;
-    num_buckets = sketchParams.num_buckets;
-
-    std::cout << "num_samples: " << num_samples << "\n";
-    std::cout << "num_buckets: " << num_buckets << "\n";
-    std::cout << "num_columns: " << num_columns << "\n";
-    std::cout << "bkt_per_col: " << bkt_per_col << "\n";
 
     // Create a bigger batch size to apply edge updates when subgraph is turning into sketch
     // representation
@@ -119,13 +95,8 @@ public:
     subgraphs = new MCSubgraph*[num_graphs];
     for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
       if (graph_id < max_sketch_graphs) {  // subgraphs that can be turned into adj. list
-        CudaUpdateParams* cudaUpdateParams;
-        gpuErrchk(cudaMallocManaged(&cudaUpdateParams, sizeof(CudaUpdateParams)));
-        cudaUpdateParams = new CudaUpdateParams(
-            num_nodes, num_updates, &buckets[graph_id * num_nodes * num_buckets], num_samples, num_buckets, num_columns, bkt_per_col, num_threads, batch_size);
-
         subgraphs[graph_id] = new MCSubgraph(graph_id, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-                                             cudaUpdateParams, ADJLIST, batch_size, sketchSeed);
+                                             sketchParams, ADJLIST, batch_size);
       } else {  // subgraphs that are always going to be in adj. list
         subgraphs[graph_id] = new MCSubgraph(graph_id, num_nodes, num_host_threads, FIXED_ADJLIST);
       }
@@ -141,7 +112,7 @@ public:
       // Set maxBytes for GPU kernel's shared memory
       size_t maxBytes =
           (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));*/
-      size_t maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
+      size_t maxBytes = (sketchParams.num_buckets * sizeof(vec_t_cu)) + (sketchParams.num_buckets * sizeof(vec_hash_t));
       cudaKernel.updateSharedMemory(maxBytes);
       std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
     }

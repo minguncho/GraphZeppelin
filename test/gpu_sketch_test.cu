@@ -4,13 +4,6 @@
 #include <sketch.h>
 #include "../src/cuda_kernel.cu"
 
-struct SketchParams {
-  size_t num_samples;
-  size_t num_buckets;
-  size_t num_columns;
-  size_t bkt_per_col;  
-};
-
 static size_t get_seed() {
   auto now = std::chrono::high_resolution_clock::now();
   return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();

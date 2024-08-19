@@ -21,7 +21,7 @@ struct SketchParams {
 
 struct SketchSubgraph {
   std::atomic<size_t> num_updates;
-  CudaUpdateParams* cudaUpdateParams;
+  CudaUpdateParams* cudaUpdateParams = nullptr;
 };
 
 class MCGPUSketchAlg : public MCSketchAlg {
@@ -159,7 +159,10 @@ public:
   }
 
   ~MCGPUSketchAlg() {
+    for (size_t i = 0; i < cur_subgraphs; i++)
+      delete subgraphs[i];
     delete[] subgraphs;
+    delete[] delta_buckets;
   }
 
   /**

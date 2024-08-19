@@ -97,7 +97,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     node_id_t max_subgraph = 0;
 
     // limit amount we process here to a single batch
-    size_t num_to_process = std::min(batch_size, dsts_data.size() - cur_pos);
+    size_t num_to_process = std::min(size_t(batch_size), dsts_data.size() - cur_pos);
     for (size_t i = cur_pos; i < cur_pos + num_to_process; i++) {
       auto &dst_data = dsts_data[i];
       node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);

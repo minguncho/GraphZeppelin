@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iomanip>
 #include <vector>
 #include <graph_sketch_driver.h>
 #include <mc_gpu_sketch_alg.h>
@@ -248,4 +249,9 @@ int main(int argc, char **argv) {
   std::cout << "VieCut Program Time(sec): " << viecut_time.count() << std::endl;
   std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
+
+  std::ofstream out("runtime_results.txt", std::ios_base::out | std::ios_base::app);
+  out << std::fixed;
+  out << std::setprecision(3);
+  out << num_threads << ", " << stream.edges() / num_seconds << std::endl;
 }

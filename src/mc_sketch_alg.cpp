@@ -930,6 +930,7 @@ MinCut MCSketchAlg::calc_minimum_cut(const std::vector<Edge> &edges) {
       right.insert(i);
   }
 
+  delete mc;
   return {left, right, cut};
 }
 

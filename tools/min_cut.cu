@@ -9,6 +9,7 @@
 
 static bool cert_clean_up = false;
 static bool shutdown = false;
+static bool cudaUVM_enabled = true;
 constexpr double epsilon = 0.75;
 
 static double get_max_mem_used() {
@@ -162,9 +163,14 @@ int main(int argc, char **argv) {
   // Reconfigure sketches_factor based on reduced_k
   mc_config.sketches_factor(reduced_k);
 
-  Bucket* buckets;
-  gpuErrchk(cudaMallocManaged(&buckets, max_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
-  sketchParams.buckets = buckets;
+  std::cout << "CUDA UVM Enabled: " << cudaUVM_enabled << "\n";
+  sketchParams.cudaUVM_enabled = cudaUVM_enabled;
+  if (cudaUVM_enabled) {
+    // Allocate memory for buckets
+    Bucket* buckets;
+    gpuErrchk(cudaMallocManaged(&buckets, max_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    sketchParams.buckets = buckets;
+  }
 
   // Getting sketch seed
   sketchParams.seed = get_seed();

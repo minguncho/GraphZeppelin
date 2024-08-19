@@ -7,6 +7,7 @@
 #include <cuda_kernel.cuh>
 
 static bool shutdown = false;
+static bool cudaUVM_enabled = true;
 
 static double get_max_mem_used() {
   struct rusage data;
@@ -98,10 +99,15 @@ int main(int argc, char **argv) {
   std::cout << "num_columns: " << sketchParams.num_columns << "\n";
   std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
 
-  // Allocate memory for buckets
-  Bucket* buckets;
-  gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
-  sketchParams.buckets = buckets;
+  std::cout << "CUDA UVM Enabled: " << cudaUVM_enabled << "\n";
+  sketchParams.cudaUVM_enabled = cudaUVM_enabled;
+  if (cudaUVM_enabled) {
+    // Allocate memory for buckets
+    Bucket* buckets;
+    gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    sketchParams.buckets = buckets;
+  }
+
   std::cout << "Size of graph sketch: " << (double)(num_nodes * sketchParams.num_buckets * sizeof(Bucket)) / 1000000000 << "GB\n";
 
   // Getting sketch seed
@@ -128,8 +134,10 @@ int main(int argc, char **argv) {
 
   cc_gpu_alg.display_time();
   
-  // Prefetch sketches back to CPU
-  gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+  if (cudaUVM_enabled) {
+    // Prefetch sketches back to CPU
+    gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+  }
 
   auto CC_num = cc_gpu_alg.connected_components().size();
 

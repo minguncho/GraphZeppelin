@@ -21,11 +21,15 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 struct SketchParams {
+  // Sketch related variables
   size_t num_samples;
   size_t num_buckets;
   size_t num_columns;
   size_t bkt_per_col;
   size_t seed;
+
+  // Variables for CUDA UVM
+  bool cudaUVM_enabled;
   Bucket* buckets;
 };
 

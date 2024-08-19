@@ -27,7 +27,7 @@ CCSketchAlg::CCSketchAlg(node_id_t num_vertices, size_t seed, CCAlgConfiguration
   shared_dsu_valid = true;
 }
 
-CCSketchAlg::CCSketchAlg(node_id_t num_vertices, size_t seed, Bucket* _buckets, CCAlgConfiguration config)
+CCSketchAlg::CCSketchAlg(node_id_t num_vertices, bool cuda_uvm, size_t seed, Bucket* _buckets, CCAlgConfiguration config)
     : num_vertices(num_vertices), seed(seed), dsu(num_vertices), config(config) {
   representatives = new std::set<node_id_t>();
   sketches = new Sketch *[num_vertices];
@@ -35,9 +35,17 @@ CCSketchAlg::CCSketchAlg(node_id_t num_vertices, size_t seed, Bucket* _buckets, 
   vec_t sketch_vec_len = Sketch::calc_vector_length(num_vertices);
   size_t sketch_num_samples = Sketch::calc_cc_samples(num_vertices, config.get_sketches_factor());
 
-  for (node_id_t i = 0; i < num_vertices; ++i) {
-    representatives->insert(i);
-    sketches[i] = new Sketch(sketch_vec_len, seed, i, _buckets, sketch_num_samples);
+  if (cuda_uvm) {
+    for (node_id_t i = 0; i < num_vertices; ++i) {
+      representatives->insert(i);
+      sketches[i] = new Sketch(sketch_vec_len, seed, i, _buckets, sketch_num_samples);
+    }
+  }
+  else {
+    for (node_id_t i = 0; i < num_vertices; ++i) {
+      representatives->insert(i);
+      sketches[i] = new Sketch(sketch_vec_len, seed, sketch_num_samples);
+    }
   }
 
   spanning_forest = new std::unordered_set<node_id_t>[num_vertices];

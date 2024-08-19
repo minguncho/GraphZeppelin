@@ -8,7 +8,7 @@
 
 class MCGPUSketchAlg : public MCSketchAlg {
 private:
-  MCSubgraph** subgraphs;
+  MCSubgraph<MCGPUSketchAlg>** subgraphs;
   SketchParams sketchParams;
 
   CudaKernel cudaKernel;
@@ -27,7 +27,6 @@ private:
   int num_reader_threads;
 
   // Maximum number of edge updates in one batch
-  int batch_size;
   int num_batch_per_buffer = 1080;
 
   // Number of subgraphs
@@ -80,7 +79,7 @@ public:
 
     // Create a bigger batch size to apply edge updates when subgraph is turning into sketch
     // representation
-    batch_size = get_desired_updates_per_batch();
+    std::cout << "Batch Size: " << get_desired_updates_per_batch() << "\n";
 
     int device_id = cudaGetDevice(&device_id);
     int device_count = 0;
@@ -92,13 +91,13 @@ public:
     std::cout << "CUDA Device Number of SMs: " << deviceProp.multiProcessorCount << "\n"; 
 
     // Initialize all subgraphs
-    subgraphs = new MCSubgraph*[num_graphs];
+    subgraphs = new MCSubgraph<MCGPUSketchAlg>*[num_graphs];
     for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
       if (graph_id < max_sketch_graphs) {  // subgraphs that can be turned into adj. list
-        subgraphs[graph_id] = new MCSubgraph(graph_id, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-                                             sketchParams, ADJLIST, batch_size);
+        subgraphs[graph_id] = new MCSubgraph<MCGPUSketchAlg>(this, graph_id, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
+                                             sketchParams, ADJLIST);
       } else {  // subgraphs that are always going to be in adj. list
-        subgraphs[graph_id] = new MCSubgraph(graph_id, num_nodes, num_host_threads, FIXED_ADJLIST);
+        subgraphs[graph_id] = new MCSubgraph<MCGPUSketchAlg>(graph_id, num_nodes, num_host_threads, FIXED_ADJLIST);
       }
     }
 

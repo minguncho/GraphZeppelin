@@ -113,7 +113,6 @@ FetchContent_MakeAvailable(GutterTree StreamingUtilities VieCut tlx)
 add_library(CUDALibrary
   src/cuda_library.cu
   src/cuda_kernel.cu
-  src/cuda_stream.cpp
   src/cc_gpu_sketch_alg.cpp
   src/mc_gpu_sketch_alg.cpp
   src/sk_gpu_sketch_alg.cpp)
@@ -126,7 +125,6 @@ target_compile_options(CUDALibrary PUBLIC -lineinfo) # -lineinfo: For profiling
 add_library(GraphZeppelin
   src/cc_sketch_alg.cpp
   src/mc_sketch_alg.cpp
-  src/mc_subgraph.cpp
   src/return_types.cpp
   src/driver_configuration.cpp
   src/cc_alg_configuration.cpp

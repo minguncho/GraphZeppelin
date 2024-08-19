@@ -16,12 +16,9 @@ private:
   // Number of CPU's graph workers
   int num_host_threads;
 
-  // Maximum number of edge updates in one batch
-  int batch_size;
-
   // Number of batches in a buffer to accept until GPU kernel launch
   int num_batch_per_buffer = 540;
-  CudaStream** cudaStreams;
+  CudaStream<CCGPUSketchAlg>** cudaStreams;
 
   std::chrono::duration<double> flush_time;
 
@@ -32,7 +29,7 @@ private:
   // kron_18 = 540
 
 public:
-  CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.seed, _sketchParams.buckets, config){ 
+  CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.buckets, config){ 
 
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
@@ -40,8 +37,7 @@ public:
     num_host_threads = num_threads;
     sketchParams = _sketchParams;
 
-    batch_size = get_desired_updates_per_batch();
-    std::cout << "Batch Size: " << batch_size << "\n";
+    std::cout << "Batch Size: " << get_desired_updates_per_batch() << "\n";
 
     int device_id = cudaGetDevice(&device_id);
     int device_count = 0;
@@ -58,15 +54,18 @@ public:
     std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
 
     // Initialize CUDA Streams
-    cudaStreams = new CudaStream*[num_host_threads];
+    cudaStreams = new CudaStream<CCGPUSketchAlg>*[num_host_threads];
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
-      cudaStreams[thr_id] = new CudaStream(num_device_threads, num_batch_per_buffer, batch_size, sketchParams);
+      cudaStreams[thr_id] = new CudaStream<CCGPUSketchAlg>(this, num_device_threads, num_batch_per_buffer, sketchParams);
     }
 
     std::cout << "Num batches per buffer: " << num_batch_per_buffer << "\n";
 
-    // Prefetch sketches to GPU
-    gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, _num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
+    if (sketchParams.cudaUVM_enabled) {
+      // Prefetch sketches to GPU
+      gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, _num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
+    }
+
 
     /*size_t free_memory;
     size_t total_memory;

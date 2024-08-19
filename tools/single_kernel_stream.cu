@@ -102,6 +102,8 @@ int main(int argc, char **argv) {
   Bucket* buckets;
   gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
   sketchParams.buckets = buckets;
+  
+  sketchParams.cudaUVM_enabled = true; // For Single Kernel, always use CUDA UVM
 
   // Getting sketch seed
   sketchParams.seed = get_seed();

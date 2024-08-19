@@ -30,22 +30,29 @@ void CCGPUSketchAlg::flush_buffers() {
 void CCGPUSketchAlg::display_time() {
   int longest_thr_id = 0;
   double longest_process_time = 0;
-  
-  for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
-    std::cout << "Thread # " << thr_id << ": " << cudaStreams[thr_id]->process_time.count() << "\n";
-    std::cout << "  Edge Fill Time: " << cudaStreams[thr_id]->edge_fill_time.count() << "\n";
-    std::cout << "  CUDA Stream Wait Time: " << cudaStreams[thr_id]->wait_time.count() << "\n";
-    std::cout << "  Sketch Prefetch Time: " << cudaStreams[thr_id]->prefetch_time.count() << "\n";
 
-    if (cudaStreams[thr_id]->process_time.count() > longest_process_time) {
-      longest_process_time = cudaStreams[thr_id]->process_time.count();
-      longest_thr_id = thr_id;
+  if (sketchParams.cudaUVM_enabled) {
+    for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+      std::cout << "Thread # " << thr_id << ": " << cudaStreams[thr_id]->process_time.count() << "\n";
+      std::cout << "  Edge Fill Time: " << cudaStreams[thr_id]->edge_fill_time.count() << "\n";
+      std::cout << "  CUDA Stream Wait Time: " << cudaStreams[thr_id]->wait_time.count() << "\n";
+      std::cout << "  Sketch Prefetch Time: " << cudaStreams[thr_id]->prefetch_time.count() << "\n";
+
+      if (cudaStreams[thr_id]->process_time.count() > longest_process_time) {
+        longest_process_time = cudaStreams[thr_id]->process_time.count();
+        longest_thr_id = thr_id;
+      }
     }
+    std::cout << "\n";
+    std::cout << "Longest Thread # " << longest_thr_id << ": " << cudaStreams[longest_thr_id]->process_time.count() << "\n";
+    std::cout << "  Edge Fill Time: " << cudaStreams[longest_thr_id]->edge_fill_time.count() << "\n";
+    std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
+    std::cout << "  Sketch Prefetch Time: " << cudaStreams[longest_thr_id]->prefetch_time.count() << "\n";
+    std::cout << "FLUSHING TIME: " << flush_time.count() << "\n";
   }
-  std::cout << "\n";
-  std::cout << "Longest Thread # " << longest_thr_id << ": " << cudaStreams[longest_thr_id]->process_time.count() << "\n";
-  std::cout << "  Edge Fill Time: " << cudaStreams[longest_thr_id]->edge_fill_time.count() << "\n";
-  std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
-  std::cout << "  Sketch Prefetch Time: " << cudaStreams[longest_thr_id]->prefetch_time.count() << "\n";
-  std::cout << "FLUSHING TIME: " << flush_time.count() << "\n";
+  else {
+
+  }
+  
+
 }

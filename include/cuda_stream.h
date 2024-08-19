@@ -65,6 +65,7 @@ public:
       // However during GTS' flushing process, buffer can be sent to GPU without being full.   
       gpuErrchk(cudaMallocHost(&h_buckets, sketchParams.num_buckets * num_batch_per_buffer * sizeof(Bucket)));
       gpuErrchk(cudaMalloc(&d_buckets, sketchParams.num_buckets * num_batch_per_buffer * sizeof(Bucket)));
+      sketchParams.d_buckets = d_buckets;
     }
 
     // Initialize buffers

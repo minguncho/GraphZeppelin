@@ -99,9 +99,9 @@ int main(int argc, char **argv) {
   std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
 
   // Allocate memory for buckets
-  Bucket* buckets;
-  gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
-  sketchParams.buckets = buckets;
+  Bucket* cudaUVM_buckets;
+  gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+  sketchParams.cudaUVM_buckets = cudaUVM_buckets;
   
   sketchParams.cudaUVM_enabled = true; // For Single Kernel, always use CUDA UVM
 

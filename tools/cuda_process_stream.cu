@@ -103,9 +103,9 @@ int main(int argc, char **argv) {
   sketchParams.cudaUVM_enabled = cudaUVM_enabled;
   if (cudaUVM_enabled) {
     // Allocate memory for buckets
-    Bucket* buckets;
-    gpuErrchk(cudaMallocManaged(&buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
-    sketchParams.buckets = buckets;
+    Bucket* cudaUVM_buckets;
+    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    sketchParams.cudaUVM_buckets = cudaUVM_buckets;
   }
 
   std::cout << "Size of graph sketch: " << (double)(num_nodes * sketchParams.num_buckets * sizeof(Bucket)) / 1000000000 << "GB\n";
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
   
   if (cudaUVM_enabled) {
     // Prefetch sketches back to CPU
-    gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+    gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
   }
 
   auto CC_num = cc_gpu_alg.connected_components().size();

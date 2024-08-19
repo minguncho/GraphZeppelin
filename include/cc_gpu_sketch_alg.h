@@ -29,7 +29,7 @@ private:
   // kron_18 = 540
 
 public:
-  CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.buckets, config){ 
+  CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.cudaUVM_buckets, config){ 
 
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
@@ -63,9 +63,8 @@ public:
 
     if (sketchParams.cudaUVM_enabled) {
       // Prefetch sketches to GPU
-      gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, _num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
+      gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, _num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
     }
-
 
     /*size_t free_memory;
     size_t total_memory;

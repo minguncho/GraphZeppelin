@@ -43,7 +43,7 @@ private:
   std::atomic<uint64_t> batch_count;
 
 public:
-  SKGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.buckets, config){ 
+  SKGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.cudaUVM_buckets, config){ 
 
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
@@ -82,7 +82,7 @@ public:
     memset(h_edgeUpdates, 0, 2 * num_updates * sizeof(node_id_t));
 
     // Prefetch sketches to GPU
-    gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
+    gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
     
     std::cout << "Bucket Memory Bytes: " << (double)(num_nodes * sketchParams.num_buckets * sizeof(Bucket)) / 1000000000 << "GB\n";
 

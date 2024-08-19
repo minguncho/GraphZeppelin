@@ -30,7 +30,10 @@ struct SketchParams {
 
   // Variables for CUDA UVM
   bool cudaUVM_enabled;
-  Bucket* buckets;
+  Bucket* cudaUVM_buckets;
+
+  // Variables for default
+  Bucket* d_buckets;
 };
 
 class CudaKernel {

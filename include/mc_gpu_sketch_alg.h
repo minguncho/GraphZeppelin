@@ -54,7 +54,7 @@ public:
                                int _num_graphs, int _min_adj_graphs, int _max_sketch_graphs, int _k,
                                double _sketch_bytes, double _adjlist_edge_bytes,
                                CCAlgConfiguration config)
-    : MCSketchAlg(_num_nodes, _sketchParams.seed, _sketchParams.buckets, _max_sketch_graphs, config) {
+    : MCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.cudaUVM_buckets, _max_sketch_graphs, config) {
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
     batch_sizes = 0;

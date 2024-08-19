@@ -87,5 +87,5 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
   std::cout << "    Throughput: " << num_updates / kernel_time.count() << "\n";
 
   // Prefecth buffers back to CPU
-  gpuErrchk(cudaMemPrefetchAsync(sketchParams.buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+  gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
 }

@@ -53,8 +53,10 @@ class MCSubgraph {
 
     // Rewrite address for buckets 
     sketchParams = _sketchParams;
-    sketchParams.buckets = &sketchParams.buckets[graph_id * num_nodes * sketchParams.num_buckets];
-
+    if (sketchParams.cudaUVM_enabled) {
+      sketchParams.cudaUVM_buckets = &sketchParams.cudaUVM_buckets[graph_id * num_nodes * sketchParams.num_buckets];
+    }
+    
     // Initialize CUDA Streams
     cudaStreams = new CudaStream<Alg>*[num_host_threads];
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {

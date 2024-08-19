@@ -160,7 +160,7 @@ public:
 
   ~MCGPUSketchAlg() {
     for (size_t i = 0; i < cur_subgraphs; i++)
-      delete subgraphs[i];
+      delete subgraphs[i].cudaUpdateParams;
     delete[] subgraphs;
     delete[] delta_buckets;
   }

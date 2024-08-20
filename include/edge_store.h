@@ -45,7 +45,8 @@ class EdgeStore {
  public:
 
   // Constructor
-  EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs);
+  EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs,
+            size_t start_subgraph = 0);
   ~EdgeStore();
 
   // functions for adding data to the edge store

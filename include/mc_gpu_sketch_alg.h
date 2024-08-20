@@ -88,7 +88,7 @@ public:
                 SketchParams sketchParams, int _num_subgraphs, int _max_sketch_graphs, int _k,
                 size_t _sketch_bytes, int _initial_sketch_graphs, CCAlgConfiguration config)
      : MCSketchAlg(num_vertices, seed, _max_sketch_graphs, config),
-       edge_store(seed, num_vertices, _sketch_bytes, _num_subgraphs) {
+       edge_store(seed, num_vertices, _sketch_bytes, _num_subgraphs, _initial_sketch_graphs) {
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
 

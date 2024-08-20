@@ -5,7 +5,7 @@
 #include <chrono>
 
 // Constructor
-EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs)
+EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs, size_t start_subgraph)
     : seed(seed),
       num_vertices(num_vertices),
       num_subgraphs(num_subgraphs),
@@ -19,6 +19,9 @@ EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, s
   num_duplicate = 0;
   num_returned = 0;
   num_contracted = 0;
+
+  cur_subgraph = start_subgraph;
+  true_min_subgraph = start_subgraph;
 }
 
 EdgeStore::~EdgeStore() {

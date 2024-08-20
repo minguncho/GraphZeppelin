@@ -24,7 +24,7 @@ private:
 
   // kron_13 = 54
   // kron_15 = 216
-  // kron_16 = 324
+  // kron_16 = 540
   // kron_17 = 540
   // kron_18 = 540
 
@@ -56,7 +56,7 @@ public:
     // Initialize CUDA Streams
     cudaStreams = new CudaStream<CCGPUSketchAlg>*[num_host_threads];
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
-      cudaStreams[thr_id] = new CudaStream<CCGPUSketchAlg>(this, num_device_threads, num_batch_per_buffer, sketchParams);
+      cudaStreams[thr_id] = new CudaStream<CCGPUSketchAlg>(this, 0, _num_nodes, num_device_threads, num_batch_per_buffer, sketchParams);
     }
 
     std::cout << "Num batches per buffer: " << num_batch_per_buffer << "\n";

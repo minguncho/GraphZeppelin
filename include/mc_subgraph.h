@@ -60,7 +60,7 @@ class MCSubgraph {
     // Initialize CUDA Streams
     cudaStreams = new CudaStream<Alg>*[num_host_threads];
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
-      cudaStreams[thr_id] = new CudaStream<Alg>(sketching_alg, num_device_threads, num_batch_per_buffer, sketchParams);
+      cudaStreams[thr_id] = new CudaStream<Alg>(sketching_alg, graph_id, num_nodes, num_device_threads, num_batch_per_buffer, sketchParams);
     }
   }
 
@@ -107,7 +107,7 @@ class MCSubgraph {
   }
 
   // Get methods
-  SketchParams get_sketchParams() { return sketchParams; }
+  SketchParams& get_sketchParams() { return sketchParams; }
   GraphType get_type() { return type; }
   size_t get_num_updates() {
     if (type == SKETCH) {

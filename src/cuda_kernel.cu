@@ -233,8 +233,8 @@ __global__ void sketchUpdate_default_kernel(node_id_t* update_src, vec_t* update
   __syncthreads();
 
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
-    atomicXor((vec_t_cu*)&buckets[(update_src[blockIdx.x] * num_buckets) + i].alpha, bucket_a[i]);
-    atomicXor((vec_t_cu*)&buckets[(update_src[blockIdx.x] * num_buckets) + i].gamma, (vec_t_cu)bucket_c[i]);
+    buckets[(blockIdx.x * num_buckets) + i].alpha = bucket_a[i];
+    buckets[(blockIdx.x * num_buckets) + i].gamma = bucket_c[i];
   }
   
 }
@@ -256,7 +256,7 @@ void CudaKernel::sketchUpdate(int num_threads, int num_blocks, cudaStream_t stre
 
 }
 
-__global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_batches, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_indexes, node_id_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
+__global__ void single_sketchUpdate_UVM_kernel(int num_device_blocks, uint64_t num_batches, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_indexes, node_id_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
 
   extern __shared__ vec_t_cu sketches[];
   vec_t_cu* bucket_a = sketches;
@@ -305,6 +305,55 @@ __global__ void single_sketchUpdate_kernel(int num_device_blocks, uint64_t num_b
   
 }
 
+__global__ void single_sketchUpdate_default_kernel(int num_device_blocks, uint64_t num_batches, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_indexes, node_id_t* edgeUpdates, Bucket* buckets, size_t num_buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
+
+  extern __shared__ vec_t_cu sketches[];
+  vec_t_cu* bucket_a = sketches;
+  vec_hash_t* bucket_c = (vec_hash_t*)&bucket_a[num_buckets];
+
+  for (uint64_t batch_id = blockIdx.x; batch_id < num_batches; batch_id += num_device_blocks) {
+    // Each thread will initialize a bucket in shared memory
+    for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
+      bucket_a[i] = 0;
+      bucket_c[i] = 0;
+    }
+
+    __syncthreads();
+
+    // Update sketch - each thread works on 1 update for on 1 column
+    for (int id = threadIdx.x; id < update_sizes[batch_id] * num_columns; id += blockDim.x) {
+
+      int column_id = id % num_columns;
+      int update_id = id / num_columns;
+
+      vec_t edge_id = device_concat_pairing_fn(update_src[batch_id], edgeUpdates[update_start_indexes[batch_id] + update_id]);
+
+      vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
+      
+      if ((column_id == 0)) {
+        // Update depth 0 bucket
+        bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edge_id, checksum);
+      }
+
+      // Update higher depth buckets
+      col_hash_t depth = bucket_get_index_depth(edge_id, sketchSeed + (column_id * 5), bkt_per_col);
+      size_t bucket_id = column_id * bkt_per_col + depth;
+      if(depth < bkt_per_col)
+        bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edge_id, checksum);
+    }
+
+    __syncthreads();
+
+    for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
+      buckets[(batch_id * num_buckets) + i].alpha = bucket_a[i];
+      buckets[(batch_id * num_buckets) + i].gamma = bucket_c[i];
+    }
+
+    __syncthreads();
+  }
+  
+}
+
 void CudaKernel::single_sketchUpdate(int num_threads, int num_blocks, size_t num_batches, node_id_t* edgeUpdates, node_id_t* update_src, vec_t* update_sizes, vec_t* update_start_index, SketchParams sketchParams) {
   size_t bkt_per_col = sketchParams.bkt_per_col;
   size_t num_columns = sketchParams.num_columns;
@@ -314,15 +363,16 @@ void CudaKernel::single_sketchUpdate(int num_threads, int num_blocks, size_t num
   size_t maxBytes = (num_buckets * sizeof(vec_t_cu)) + (num_buckets * sizeof(vec_hash_t));
 
   if (sketchParams.cudaUVM_enabled) {
-    single_sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes>>>(num_blocks, num_batches, update_src, update_sizes, update_start_index, edgeUpdates, sketchParams.cudaUVM_buckets, num_buckets, num_columns, bkt_per_col, sketchParams.seed);
+    single_sketchUpdate_UVM_kernel<<<num_blocks, num_threads, maxBytes>>>(num_blocks, num_batches, update_src, update_sizes, update_start_index, edgeUpdates, sketchParams.cudaUVM_buckets, num_buckets, num_columns, bkt_per_col, sketchParams.seed);
   }
   else {
-    single_sketchUpdate_kernel<<<num_blocks, num_threads, maxBytes>>>(num_blocks, num_batches, update_src, update_sizes, update_start_index, edgeUpdates, sketchParams.d_buckets, num_buckets, num_columns, bkt_per_col, sketchParams.seed);
+    single_sketchUpdate_default_kernel<<<num_blocks, num_threads, maxBytes>>>(num_blocks, num_batches, update_src, update_sizes, update_start_index, edgeUpdates, sketchParams.d_buckets, num_buckets, num_columns, bkt_per_col, sketchParams.seed);
   }
 }
 
 void CudaKernel::updateSharedMemory(size_t maxBytes) {
   cudaFuncSetAttribute(sketchUpdate_UVM_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxBytes);
   cudaFuncSetAttribute(sketchUpdate_default_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxBytes);
-  cudaFuncSetAttribute(single_sketchUpdate_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxBytes);
+  cudaFuncSetAttribute(single_sketchUpdate_UVM_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxBytes);
+  cudaFuncSetAttribute(single_sketchUpdate_default_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxBytes);
 }

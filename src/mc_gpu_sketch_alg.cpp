@@ -146,6 +146,15 @@ void MCGPUSketchAlg::convert_adj_to_sketch() {
       batch_count++;
     } 
 
+    Bucket *h_buckets;
+    if (!sketchParams.cudaUVM_enabled) {
+      gpuErrchk(cudaFree(subgraphs[graph_id]->get_sketchParams().d_buckets));
+
+      gpuErrchk(cudaMallocHost(&h_buckets, sketchParams.num_buckets * batch_count * sizeof(Bucket)));
+      gpuErrchk(cudaMalloc(&subgraphs[graph_id]->get_sketchParams().d_buckets, sketchParams.num_buckets * batch_count * sizeof(Bucket)));
+    }
+
+
     node_id_t *d_update_src;
     vec_t *d_update_sizes, *d_update_start_index;
     gpuErrchk(cudaMalloc(&d_update_src, batch_count * sizeof(node_id_t)));
@@ -159,6 +168,26 @@ void MCGPUSketchAlg::convert_adj_to_sketch() {
     gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, subgraphs[graph_id]->get_num_adj_edges() * sizeof(node_id_t), cudaMemcpyHostToDevice));
     cudaKernel.single_sketchUpdate(num_device_threads, batch_count, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, subgraphs[graph_id]->get_sketchParams());
     cudaDeviceSynchronize();
+
+    if (!sketchParams.cudaUVM_enabled) {
+      // Transfer back delta sketch
+      gpuErrchk(cudaMemcpy(h_buckets, subgraphs[graph_id]->get_sketchParams().d_buckets, sketchParams.num_buckets * batch_count * sizeof(Bucket), cudaMemcpyDeviceToHost));
+
+      // Apply delta sketch
+      for (int batch_id = 0; batch_id < batch_count; batch_id++) {
+        node_id_t src = h_update_src[batch_id];
+        src = (graph_id * num_nodes) + src;
+        apply_raw_buckets_update(src, &h_buckets[batch_id * sketchParams.num_buckets]);
+      }
+
+      // Free memory
+      gpuErrchk(cudaFree(subgraphs[graph_id]->get_sketchParams().d_buckets));
+    }
+
+    gpuErrchk(cudaFree(d_edgeUpdates));
+    gpuErrchk(cudaFree(d_update_src));
+    gpuErrchk(cudaFree(d_update_sizes));
+    gpuErrchk(cudaFree(d_update_start_index));
 
     indiv_conversion_time.push_back(std::chrono::steady_clock::now() - indiv_conversion_start);
     std::cout << "Finished.\n";

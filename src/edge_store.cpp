@@ -65,8 +65,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   }
   num_edges += edges_delta;
 
-  if (ret.size() == 0 && true_min_subgraph < cur_first_es_subgraph &&
-      needs_contraction < num_vertices) {
+  if (ret.size() == 0 && true_min_subgraph < cur_first_es_subgraph) {
     return vertex_advance_subgraph(cur_first_es_subgraph);
   } else {
     check_if_too_big();
@@ -110,8 +109,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
   }
   num_edges += edges_delta;
 
-  if (ret.size() == 0 && true_min_subgraph < cur_first_es_subgraph &&
-      needs_contraction < num_vertices) {
+  if (ret.size() == 0 && true_min_subgraph < cur_first_es_subgraph) {
     return vertex_advance_subgraph(cur_first_es_subgraph);
   } else {
     check_if_too_big();
@@ -191,11 +189,12 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
     
     if (src >= num_vertices) {
       if (src == num_vertices) {
-#ifdef VERIFY_SAMPLES_F
         std::lock_guard<std::mutex> lk(contract_lock);
+#ifdef VERIFY_SAMPLES_F
         verify_contract_complete();
 #endif
         ++true_min_subgraph;
+        std::cerr << "EdgeStore: Contraction complete" << std::endl;
       }
       return {0, cur_first_es_subgraph - 1, cur_first_es_subgraph, std::vector<SubgraphTaggedUpdate>()};
     }

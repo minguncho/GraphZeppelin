@@ -86,7 +86,7 @@ private:
 public:
  MCGPUSketchAlg(node_id_t num_vertices, int num_threads, int _num_reader_threads, size_t seed,
                 SketchParams sketchParams, int _num_subgraphs, int _max_sketch_graphs, int _k,
-                size_t _sketch_bytes, CCAlgConfiguration config)
+                size_t _sketch_bytes, int _initial_sketch_graphs, CCAlgConfiguration config)
      : MCSketchAlg(num_vertices, seed, _max_sketch_graphs, config),
        edge_store(seed, num_vertices, _sketch_bytes, _num_subgraphs) {
     // Start timer for initializing
@@ -104,8 +104,12 @@ public:
     num_device_blocks = k;  // Change this value based on dataset <-- Come up with formula to compute
                            // this automatically
 
+    if (_max_sketch_graphs < _initial_sketch_graphs) {
+      std::cerr << "ERROR: Cannot have initial sketch graphs > max sketch graphs" << std::endl;
+      exit(EXIT_FAILURE);
+    }
     num_subgraphs = _num_subgraphs;
-    cur_subgraphs = 0;
+    cur_subgraphs = _initial_sketch_graphs;
     max_sketch_graphs = _max_sketch_graphs;
     subgraphs = new SketchSubgraph[max_sketch_graphs];
 
@@ -143,6 +147,20 @@ public:
       //     (num_last_tb_buckets * sizeof(vec_t_cu)) + (num_last_tb_buckets * sizeof(vec_hash_t));
       // cudaKernel.updateSharedMemory(maxBytes);
       // std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
+    }
+
+    // Initialize Sketch Graphs
+    for (int i = 0; i < cur_subgraphs; i++) {
+      create_sketch_graph(i);
+
+      CudaUpdateParams* params;
+      // TODO: Is this malloc necessary?
+      gpuErrchk(cudaMallocManaged(&params, sizeof(CudaUpdateParams)));
+      params = new CudaUpdateParams(
+         num_nodes, num_samples, num_buckets, num_columns, bkt_per_col, num_host_threads,
+         num_reader_threads, batch_size, stream_multiplier, num_device_blocks, k);
+      subgraphs[i].num_updates = 0;
+      subgraphs[i].cudaUpdateParams = params;
     }
 
     // Initialize CUDA Streams

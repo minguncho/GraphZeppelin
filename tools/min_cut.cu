@@ -67,9 +67,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<MCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4) {
+  if (argc != 5) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, inital_sketch_graphs" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -81,6 +81,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   int reader_threads = std::atoi(argv[3]);
+  int initial_sketch_graphs = std::atoi(argv[4]);
 
   BinaryFileStream stream(stream_file);
   node_id_t num_nodes = stream.vertices();
@@ -148,7 +149,8 @@ int main(int argc, char **argv) {
   // Reconfigure sketches_factor based on reduced_k
   mc_config.sketches_factor(reduced_k);
 
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, get_seed(), sketchParams, num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, mc_config};
+  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, get_seed(), sketchParams, 
+    num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, initial_sketch_graphs, mc_config};
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};
 
   auto ins_start = std::chrono::steady_clock::now();

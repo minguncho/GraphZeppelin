@@ -101,9 +101,8 @@ void MCSketchAlg::create_sketch_graph(int graph_id) {
   size_t sketch_num_samples = Sketch::calc_cc_samples(num_vertices, config.get_sketches_factor());
 
   for (node_id_t i = 0; i < num_vertices; ++i) {
-    if (graph_id == 0 && i == 0) continue;
     sketches[(graph_id * num_vertices) + i] = new Sketch(sketch_vec_len, seed, sketch_num_samples);
-  }  
+  }
 
   num_sketch_graphs++;
 }
@@ -170,12 +169,14 @@ void MCSketchAlg::apply_raw_buckets_update(node_id_t src_vertex, Bucket *raw_buc
 
 // Note: for performance reasons route updates through the driver instead of calling this function
 //       whenever possible.
-void MCSketchAlg::update(GraphUpdate upd) {
+void MCSketchAlg::update_subgraph(int graph_id, GraphUpdate upd) {
   pre_insert(upd, 0);
   Edge edge = upd.edge;
 
-  sketches[edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
-  sketches[edge.dst]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
+  sketches[(num_vertices * graph_id) + edge.src]->update(
+      static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
+  sketches[(num_vertices * graph_id) + edge.dst]->update(
+      static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
 }
 
 // sample from a sketch that represents a supernode of vertices
@@ -824,19 +825,22 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t g
   size_t max_rounds = 0;
 
   for (size_t i = 0; i < k; i++) {
-    SpanningForest sf = calc_spanning_forest(graph_id);
+    SpanningForest sf = calc_spanning_forest(graph_id)
 
     max_rounds = std::max(last_query_rounds, max_rounds);
 
     SFs.push_back(sf);
 
-    for (auto edge : sf.get_edges()) {
-      update({edge, DELETE}); // deletes the found edge
+    if (i + 1 < k) {
+      for (auto edge : sf.get_edges()) {
+        update_subgraph(graph_id, {edge, DELETE}); // deletes the found edge
+      }
     }
   }
 
   // revert the state of the sketches to remove all deletions
-  for (auto &sf : SFs) {
+  for (size_t i = 0; i < k - 1; i++) {
+    const auto &sf = SFs[i];
     for (auto edge : sf.get_edges()) {
       update({edge, INSERT}); // reinserts the deleted edge
     }

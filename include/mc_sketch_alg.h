@@ -242,7 +242,7 @@ class MCSketchAlg {
    * 
    * This function is not thread-safe
    */
-  void update(GraphUpdate upd);
+  void update_subgraph(int graph_id, GraphUpdate upd);
 
   /**
    * Main parallel query algorithm utilizing Boruvka and L_0 sampling.

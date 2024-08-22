@@ -145,8 +145,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   }
 
   // TODO: This memory allocation is sad
-  std::vector<SubgraphTaggedUpdate> store_edges;
-  std::vector<SubgraphTaggedUpdate> sketch_edges;
+  std::vector<SubgraphTaggedUpdate> &store_edges = store_buffers[thr_id];
+  std::vector<SubgraphTaggedUpdate> &sketch_edges = sketch_buffers[thr_id];
 
   for (vec_t i = 0; i < dst_vertices.size(); i++) {
     // Determine the depth of current edge
@@ -167,6 +167,9 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
   if (more_upds.dsts_data.size() > 0)
     complete_update_batch(thr_id, more_upds);
+
+  store_edges.clear();
+  sketch_edges.clear();
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {

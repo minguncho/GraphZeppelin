@@ -81,6 +81,8 @@ MCSketchAlg::~MCSketchAlg() {
   if (delta_sketches != nullptr) {
     for (size_t i = 0; i < num_delta_sketches; i++) delete delta_sketches[i];
     delete[] delta_sketches;
+    delete[] store_buffers;
+    delete[] sketch_buffers;
   }
 
   delete representatives;

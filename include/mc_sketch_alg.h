@@ -100,6 +100,9 @@ class MCSketchAlg {
   Sketch **delta_sketches = nullptr;
   size_t num_delta_sketches;
 
+  std::vector<SubgraphTaggedUpdate> *store_buffers;
+  std::vector<SubgraphTaggedUpdate> *sketch_buffers;
+
   CCAlgConfiguration config;
 #ifdef VERIFY_SAMPLES_F
   std::unique_ptr<GraphVerifier> verifier;
@@ -188,6 +191,9 @@ class MCSketchAlg {
           new Sketch(Sketch::calc_vector_length(num_vertices), seed,
                      Sketch::calc_cc_samples(num_vertices, config.get_sketches_factor()));
     }
+
+    store_buffers = new std::vector<SubgraphTaggedUpdate>[num_workers];
+    sketch_buffers = new std::vector<SubgraphTaggedUpdate>[num_workers];
   }
 
   /**

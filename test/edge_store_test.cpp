@@ -110,5 +110,4 @@ TEST(EdgeStoreTest, contract) {
     node_id_t dst = std::max(edge.src, edge.dst);
     ASSERT_NE(edges_added.find({src, dst}), edges_added.end());
   }
-  edge_store.stats();
 }

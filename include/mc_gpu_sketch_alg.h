@@ -9,7 +9,9 @@ struct CudaStream {
   cudaStream_t stream;
   int delta_applied;
   int src_vertex;
-  int num_graphs;
+  // min and max subgraph form a half open range
+  int min_subgraph;
+  int max_subgraph;
 };
 
 struct SketchParams {

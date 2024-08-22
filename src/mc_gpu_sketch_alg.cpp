@@ -13,8 +13,8 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
 
       // CUDA Stream is available, check if it has any delta sketch
       if(streams[cur_stream].delta_applied == 0) {
-
-        for (int graph_id = 0; graph_id < streams[cur_stream].num_graphs; graph_id++) {   
+        for (int graph_id = streams[stream_id].min_subgraph;
+             graph_id < streams[cur_stream].max_subgraph; graph_id++) {
           size_t bucket_offset = thr_id * num_buckets;
           for (size_t i = 0; i < num_buckets; i++) {
             delta_buckets[bucket_offset + i].alpha = subgraphs[graph_id].cudaUpdateParams->h_bucket_a[(cur_stream * num_buckets) + i];
@@ -32,7 +32,8 @@ size_t MCGPUSketchAlg::get_and_apply_finished_stream(int thr_id) {
         }
         streams[cur_stream].delta_applied = 1;
         streams[cur_stream].src_vertex = -1;
-        streams[cur_stream].num_graphs = -1;
+        streams[cur_stream].min_subgraph = -1;
+        streams[cur_stream].max_subgraph = -1;
       }
       else {
         if (streams[cur_stream].src_vertex != -1) {
@@ -114,7 +115,8 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     // Go to every subgraph and apply sketch updates
     streams[stream_id].src_vertex = src_vertex;
     streams[stream_id].delta_applied = 0;
-    streams[stream_id].num_graphs = max_subgraph + 1;
+    streams[stream_id].min_subgraph = min_subgraph;
+    streams[stream_id].max_subgraph = max_subgraph + 1;
 
     for (int graph_id = min_subgraph; graph_id <= max_subgraph; graph_id++) {
       subgraphs[graph_id].num_updates += sketch_update_size[graph_id];
@@ -163,7 +165,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
       edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges);
   if (sketch_edges.size() > 0)
     complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
-  if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+  if (more_upds.dsts_data.size() > 0)
+    complete_update_batch(thr_id, more_upds);
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
@@ -183,8 +186,8 @@ void MCGPUSketchAlg::apply_flush_updates() {
   // apply all outstanding deltas
   for (int stream_id = 0; stream_id < num_host_threads * stream_multiplier; stream_id++) {
     if(streams[stream_id].delta_applied == 0) {
-      for (int graph_id = 0; graph_id < streams[stream_id].num_graphs; graph_id++) {
-
+      for (int graph_id = streams[stream_id].min_subgraph;
+           graph_id < streams[stream_id].max_subgraph; graph_id++) {
         for (size_t i = 0; i < num_buckets; i++) {
           delta_buckets[i].alpha = subgraphs[graph_id].cudaUpdateParams->h_bucket_a[(stream_id * num_buckets) + i];
           delta_buckets[i].gamma = subgraphs[graph_id].cudaUpdateParams->h_bucket_c[(stream_id * num_buckets) + i];
@@ -201,7 +204,8 @@ void MCGPUSketchAlg::apply_flush_updates() {
       }
       streams[stream_id].delta_applied = 1;
       streams[stream_id].src_vertex = -1;
-      streams[stream_id].num_graphs = -1;
+      streams[stream_id].min_subgraph = -1;
+      streams[stream_id].max_subgraph = -1;
     }
   }
 }

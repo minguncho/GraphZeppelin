@@ -825,7 +825,7 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t g
   size_t max_rounds = 0;
 
   for (size_t i = 0; i < k; i++) {
-    SpanningForest sf = calc_spanning_forest(graph_id)
+    SpanningForest sf = calc_spanning_forest(graph_id);
 
     max_rounds = std::max(last_query_rounds, max_rounds);
 
@@ -842,7 +842,7 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t g
   for (size_t i = 0; i < k - 1; i++) {
     const auto &sf = SFs[i];
     for (auto edge : sf.get_edges()) {
-      update({edge, INSERT}); // reinserts the deleted edge
+      update_subgraph(graph_id, {edge, INSERT}); // reinserts the deleted edge
     }
   }
 #ifdef VERIFY_SAMPLES_F

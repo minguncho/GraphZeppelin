@@ -15,11 +15,6 @@ EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, s
   num_edges = 0;
   adj_mutex = new std::mutex[num_vertices];
 
-  num_inserted = 0;
-  num_duplicate = 0;
-  num_returned = 0;
-  num_contracted = 0;
-
   cur_subgraph = start_subgraph;
   true_min_subgraph = start_subgraph;
 }
@@ -34,7 +29,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
   node_id_t cur_first_es_subgraph;
-  num_inserted += dst_vertices.size();
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     cur_first_es_subgraph = cur_subgraph;
@@ -48,8 +42,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
 
       if (cur_first_es_subgraph > 0) {
         ret.push_back(data); // add everything in dst_vertices to ret
-        num_returned++;
-
         if (data.subgraph < cur_first_es_subgraph) continue; // skip stuff that shouldn't be added
       }
 
@@ -60,7 +52,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
           exit(EXIT_FAILURE);
         }
         edges_delta--;
-        num_duplicate++;
       } else {
         edges_delta++;
       }
@@ -81,7 +72,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
   node_id_t cur_first_es_subgraph;
-  num_inserted += dst_data.size();
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     cur_first_es_subgraph = cur_subgraph;
@@ -92,7 +82,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
     for (auto data : dst_data) {
       if (cur_first_es_subgraph > caller_first_es_subgraph) {
         ret.push_back(data); // add everything in dst_vertices to ret
-        num_returned++;
 
         if (data.subgraph < cur_first_es_subgraph) continue; // skip stuff that shouldn't be added
       }
@@ -104,7 +93,6 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
           exit(EXIT_FAILURE);
         }
         edges_delta--;
-        num_duplicate++;
       } else {
         edges_delta++;
       }
@@ -146,7 +134,6 @@ void EdgeStore::verify_contract_complete() {
     }
   }
   std::cerr << "Contraction verified!" << std::endl;
-  stats();
 }
 #endif
 
@@ -176,12 +163,9 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
     ret.push_back(*it);
   }
 
-  num_contracted -= edges_delta;
-
   // now perform the deletion
   adjlist[src].erase(it_begin, delete_it);
   num_edges += edges_delta;
-  num_returned += ret.size();
   return ret;
 }
 
@@ -241,5 +225,4 @@ void EdgeStore::check_if_too_big() {
   std::cerr << "    store_edge_bytes = " << store_edge_bytes << std::endl; 
   std::cerr << "    sketch_bytes = " << sketch_bytes << std::endl;
 
-  stats();
 }

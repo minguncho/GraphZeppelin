@@ -20,7 +20,12 @@ private:
   int num_batch_per_buffer = 540;
   CudaStream<CCGPUSketchAlg>** cudaStreams;
 
+  size_t batch_size;
+  double small_batch_perc = 0.0;
+  size_t small_batch_size;
+
   std::chrono::duration<double> flush_time;
+  std::vector<std::chrono::duration<double>> small_batch_time;
 
   // kron_13 = 54
   // kron_15 = 216
@@ -37,7 +42,10 @@ public:
     num_host_threads = num_threads;
     sketchParams = _sketchParams;
 
-    std::cout << "Batch Size: " << get_desired_updates_per_batch() << "\n";
+    batch_size = get_desired_updates_per_batch();
+    small_batch_size = batch_size * small_batch_perc;
+    std::cout << "Batch Size: " << batch_size << "\n";
+    std::cout << "  Small Batch Size (" << small_batch_perc << "): " << small_batch_size << "\n";
 
     int device_id = cudaGetDevice(&device_id);
     int device_count = 0;
@@ -57,6 +65,7 @@ public:
     cudaStreams = new CudaStream<CCGPUSketchAlg>*[num_host_threads];
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
       cudaStreams[thr_id] = new CudaStream<CCGPUSketchAlg>(this, 0, _num_nodes, num_device_threads, num_batch_per_buffer, sketchParams);
+      small_batch_time.push_back(std::chrono::nanoseconds::zero());
     }
 
     std::cout << "Num batches per buffer: " << num_batch_per_buffer << "\n";
@@ -65,8 +74,8 @@ public:
       // Prefetch sketches to GPU
       gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, _num_nodes * sketchParams.num_buckets * sizeof(Bucket), device_id));
     }
-
-    /*size_t free_memory;
+  
+    size_t free_memory;
     size_t total_memory;
     size_t size = 0.1;
 
@@ -76,6 +85,8 @@ public:
     std::cout << "Init - GPU Free (Available) Memory: " << (double)free_memory / 1000000000 << "GB\n";
     std::cout << "Init - GPU Allocated Memory: " << (double)(total_memory - free_memory) / 1000000000 << "GB\n";
 
+    //For limiting GPU Memory
+    /* size_t size = 0.1;
     size_t sketch_bytes = _num_nodes * sketchParams.num_buckets * sizeof(Bucket);
     std::cout << "Allocating rest of the free memory in GPU: " << (double)(free_memory + (sketch_bytes * size)) / 1000000000 << "\n";
     void* dummy_pointer;

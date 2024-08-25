@@ -87,6 +87,12 @@ int main(int argc, char **argv) {
   std::cout << "num_updates = " << num_updates << std::endl;
   std::cout << std::endl;
 
+  size_t free_memory;
+  size_t total_memory;
+
+  cudaMemGetInfo(&free_memory, &total_memory);
+  std::cout << "CUDA Driver - GPU Allocated Memory: " << (double)(total_memory - free_memory) / 1000000000 << "GB\n";
+
   // Get variables from sketch
   SketchParams sketchParams;
   sketchParams.num_samples = Sketch::calc_cc_samples(num_nodes, 1);

@@ -192,9 +192,13 @@ if (BUILD_EXE)
     test/xxhash_test.cu)
   target_link_libraries(xxhash_test PRIVATE GraphZeppelin CUDALibrary)
 
-  add_executable(gpu_sketch_test
-    test/gpu_sketch_test.cu)
-  target_link_libraries(gpu_sketch_test PRIVATE GraphZeppelin CUDALibrary)
+  add_executable(gpu_sketch_throughput
+    test/gpu_sketch_throughput.cu)
+  target_link_libraries(gpu_sketch_throughput PRIVATE GraphZeppelin CUDALibrary)
+
+  add_executable(cpu_sketch_throughput
+    test/cpu_sketch_throughput.cpp)
+  target_link_libraries(cpu_sketch_throughput PRIVATE GraphZeppelin)
 
   add_executable(min_cut
     tools/min_cut.cu)

@@ -19,8 +19,6 @@ void CCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 };
 
 void CCGPUSketchAlg::flush_buffers() {
-
-  auto flush_start = std::chrono::steady_clock::now();
   auto task = [&](int thr_id) {
     cudaStreams[thr_id]->flush_buffers();
   };
@@ -30,7 +28,6 @@ void CCGPUSketchAlg::flush_buffers() {
   // wait for threads to finish
   for (size_t i = 0; i < num_host_threads; i++) threads[i].join();
   cudaDeviceSynchronize();
-  flush_time = std::chrono::steady_clock::now() - flush_start;
 }
 
 
@@ -41,11 +38,11 @@ void CCGPUSketchAlg::display_time() {
   if (sketchParams.cudaUVM_enabled) {
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
       double total_process_time = cudaStreams[thr_id]->process_time.count() + small_batch_time[thr_id].count();
-      std::cout << "Thread # " << thr_id << ": " << total_process_time << "\n";
+      /*std::cout << "Thread # " << thr_id << ": " << total_process_time << "\n";
       std::cout << "  Edge Fill Time: " << cudaStreams[thr_id]->edge_fill_time.count() << "\n";
       std::cout << "  CUDA Stream Wait Time: " << cudaStreams[thr_id]->wait_time.count() << "\n";
       std::cout << "  Sketch Prefetch Time: " << cudaStreams[thr_id]->prefetch_time.count() << "\n";
-      std::cout << "  Small Batch Update Time: " << small_batch_time[thr_id].count() << "\n";
+      std::cout << "  Small Batch Update Time: " << small_batch_time[thr_id].count() << "\n";*/
 
       if (total_process_time > longest_process_time) {
         longest_process_time = total_process_time;
@@ -58,16 +55,15 @@ void CCGPUSketchAlg::display_time() {
     std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
     std::cout << "  Sketch Prefetch Time: " << cudaStreams[longest_thr_id]->prefetch_time.count() << "\n";
     std::cout << "  Small Batch Update Time: " << small_batch_time[longest_thr_id].count() << "\n";
-    std::cout << "FLUSHING TIME: " << flush_time.count() << "\n";
   }
   else {
     for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
       double total_process_time = cudaStreams[thr_id]->process_time.count() + small_batch_time[thr_id].count();
-      std::cout << "Thread # " << thr_id << ": " << total_process_time << "\n";
+      /*std::cout << "Thread # " << thr_id << ": " << total_process_time << "\n";
       std::cout << "  Edge Fill Time: " << cudaStreams[thr_id]->edge_fill_time.count() << "\n";
       std::cout << "  CUDA Stream Wait Time: " << cudaStreams[thr_id]->wait_time.count() << "\n";
       std::cout << "  Delta Sketch Applying Time: " << cudaStreams[thr_id]->apply_delta_time.count() << "\n";
-      std::cout << "  Small Batch Update Time: " << small_batch_time[thr_id].count() << "\n";
+      std::cout << "  Small Batch Update Time: " << small_batch_time[thr_id].count() << "\n";*/
 
       if (total_process_time > longest_process_time) {
         longest_process_time = total_process_time;
@@ -80,7 +76,6 @@ void CCGPUSketchAlg::display_time() {
     std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
     std::cout << "  Delta Sketch Applying Time: " << cudaStreams[longest_thr_id]->apply_delta_time.count() << "\n";
     std::cout << "  Small Batch Update Time: " << small_batch_time[longest_thr_id].count() << "\n";
-    std::cout << "FLUSHING TIME: " << flush_time.count() << "\n";
   }
   
 }

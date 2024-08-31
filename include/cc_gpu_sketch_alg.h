@@ -24,7 +24,6 @@ private:
   double small_batch_perc = 0.0;
   size_t small_batch_size;
 
-  std::chrono::duration<double> flush_time;
   std::vector<std::chrono::duration<double>> small_batch_time;
 
   // kron_13 = 54
@@ -35,7 +34,6 @@ private:
 
 public:
   CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.cudaUVM_buckets, config){ 
-
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
 

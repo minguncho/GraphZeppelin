@@ -7,7 +7,7 @@
 #include <cuda_kernel.cuh>
 
 static bool shutdown = false;
-static bool cudaUVM_enabled = true;
+static bool cudaUVM_enabled = false;
 
 static double get_max_mem_used() {
   struct rusage data;
@@ -134,22 +134,28 @@ int main(int argc, char **argv) {
   auto cc_start = std::chrono::steady_clock::now();
   driver.prep_query(CONNECTIVITY);
   cudaDeviceSynchronize();
+  std::chrono::duration<double> gts_flush_time = std::chrono::steady_clock::now() - cc_start;
+  auto gpu_flush_start = std::chrono::steady_clock::now();
   cc_gpu_alg.flush_buffers();
   cudaDeviceSynchronize();
+  std::chrono::duration<double> gpu_flush_time = std::chrono::steady_clock::now() - gpu_flush_start;
   auto flush_end = std::chrono::steady_clock::now();
 
   cc_gpu_alg.display_time();
   
+  std::chrono::duration<double> pref_time = std::chrono::nanoseconds::zero();
   if (cudaUVM_enabled) {
     // Prefetch sketches back to CPU
+    auto pref_start = std::chrono::steady_clock::now();
     gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+    pref_time += std::chrono::steady_clock::now() - pref_start;
   }
 
   auto CC_num = cc_gpu_alg.connected_components().size();
 
   std::chrono::duration<double> insert_time = flush_end - ins_start;
   std::chrono::duration<double> cc_time = std::chrono::steady_clock::now() - cc_start;
-  std::chrono::duration<double> flush_time = flush_end - driver.flush_start;
+  std::chrono::duration<double> flush_time = flush_end - cc_start;
   std::chrono::duration<double> cc_alg_time = cc_gpu_alg.cc_alg_end - cc_gpu_alg.cc_alg_start;
 
   shutdown = true;
@@ -158,9 +164,12 @@ int main(int argc, char **argv) {
   double num_seconds = insert_time.count();
   std::cout << "Total insertion time(sec):    " << num_seconds << std::endl;
   std::cout << "Updates per second:           " << stream.edges() / num_seconds << std::endl;
-  std::cout << "Total CC query latency:       " << cc_time.count() + flush_time.count() << std::endl;
-  std::cout << "  Flush Gutters(sec):           " << flush_time.count() << std::endl;
-  std::cout << "  Boruvka's Algorithm(sec):     " << cc_alg_time.count() << std::endl;
+  std::cout << "Total CC query latency:       " << cc_time.count() << std::endl;
+  std::cout << "  Flushing (sec):             " << flush_time.count() << std::endl;
+  std::cout << "    GTS (sec):                " << gts_flush_time.count() << std::endl;
+  std::cout << "    GPU Buffers (sec):        " << gpu_flush_time.count() << std::endl;
+  std::cout << "  UVM - Prefetch (sec):       " << pref_time.count() << std::endl;     
+  std::cout << "  Boruvka's Algorithm(sec):   " << cc_alg_time.count() << std::endl;
   std::cout << "Connected Components:         " << CC_num << std::endl;
   std::cout << "Maximum Memory Usage(MiB):    " << get_max_mem_used() << std::endl;
 }

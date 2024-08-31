@@ -1,4 +1,4 @@
-
+#pragma once
 #include <vector>
 #include <cuda_xxhash64.cuh>
 #include "../include/cuda_kernel.cuh"

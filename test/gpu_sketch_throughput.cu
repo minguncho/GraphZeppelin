@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cmath>
 #include <vector>
 
 #include <sketch.h>
@@ -8,69 +9,6 @@ static size_t get_seed() {
   auto now = std::chrono::high_resolution_clock::now();
   return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 }
-
-/*__global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes, size_t num_updates, size_t num_sketch_buckets, Bucket* buckets, int *num_tb_columns, size_t bkt_per_col, size_t sketchSeed) {
-
-  size_t num_columns = num_tb_columns[blockIdx.x];
-  size_t num_buckets = num_columns * bkt_per_col;
-  size_t column_offset = 0;
-
-  for (int i = 0; i < blockIdx.x; i++) {
-    column_offset += num_tb_columns[i];
-  }
-
-  // Increment num_buckets for last thread block
-  if (blockIdx.x == (num_device_blocks - 1)) {
-    num_buckets++;
-  }
-
-  extern __shared__ vec_t_cu sketches[];
-  vec_t_cu* bucket_a = sketches;
-  vec_hash_t* bucket_c = (vec_hash_t*)&bucket_a[num_buckets];
-
-  for (size_t i = threadIdx.x; i < num_buckets; i += blockDim.x) {
-    bucket_a[i] = 0;
-    bucket_c[i] = 0;
-  }
-
-  __syncthreads();
-
-  for (size_t id = threadIdx.x; id < num_updates * num_columns; id += blockDim.x) {
-
-    size_t column_id = id % num_columns;
-    size_t update_id = id / num_columns;
-
-    // Get random edge id based on current update_id
-    vec_t edge_id = update_id % num_nodes;
-
-    vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
-    
-    if ((blockIdx.x == num_device_blocks - 1)  && (column_id == 0)) {
-      // Update depth 0 bucket
-      bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edge_id, checksum);
-    }
-
-    // Update higher depth buckets
-    col_hash_t depth = bucket_get_index_depth(edge_id, sketchSeed + ((column_offset + column_id) * 5), bkt_per_col);
-    size_t bucket_id = column_id * bkt_per_col + depth;
-    if(depth < bkt_per_col)
-      bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edge_id, checksum);
-  }
-
-  __syncthreads();
-
-  size_t bucket_offset = 0;
-
-  for (int i = 0; i < blockIdx.x; i++) {
-    bucket_offset += (num_tb_columns[i] * bkt_per_col);
-  }
-
-  for (size_t i = threadIdx.x; i < num_buckets; i += blockDim.x) {
-    atomicXor((vec_t_cu*)&buckets[bucket_offset + i].alpha, bucket_a[i]);
-    atomicXor((vec_t_cu*)&buckets[bucket_offset + i].gamma, (vec_t_cu)bucket_c[i]);
-  }
-
-}*/
 
 __global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes, size_t num_updates, size_t num_buckets, Bucket* buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
 
@@ -126,6 +64,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+  std::cout << "SKETCH COMPUTE THROUGHPUT TEST - GPU:\n";
+
   int device_id = cudaGetDevice(&device_id);
   int device_count = 0;
   cudaGetDeviceCount(&device_count);
@@ -178,8 +118,10 @@ int main(int argc, char **argv) {
   std::cout << "\n";
 
   int num_device_threads = 1024;
-  int num_updates_per_blocks = num_device_threads;
-  int num_device_blocks = num_updates / num_device_threads;
+  int num_updates_per_blocks = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
+  int num_device_blocks = std::ceil((double)num_updates / num_updates_per_blocks);
+
+  std::cout << "Batch Size: " << num_updates_per_blocks << "\n\n";
 
   /*int *num_tb_columns;
   gpuErrchk(cudaMallocManaged(&num_tb_columns, num_device_blocks * sizeof(int)));

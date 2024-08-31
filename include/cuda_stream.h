@@ -69,10 +69,10 @@ public:
       gpuErrchk(cudaMallocHost(&h_buckets, sketchParams.num_buckets * num_batch_per_buffer * sizeof(Bucket)));
       gpuErrchk(cudaMalloc(&sketchParams.d_buckets, sketchParams.num_buckets * num_batch_per_buffer * sizeof(Bucket)));
       total_buffer_size += sketchParams.num_buckets * num_batch_per_buffer * sizeof(Bucket);
-      std::cout << "CUDA Stream GPU Buffer Size: " << total_buffer_size / 1000000000 << "GB\n";
+      //std::cout << "CUDA Stream GPU Buffer Size: " << total_buffer_size / 1000000000 << "GB\n";
     }
     else {
-      std::cout << "CUDA Stream GPU Buffer Size: " << total_buffer_size / 1000000000 << "GB\n";
+      //std::cout << "CUDA Stream GPU Buffer Size: " << total_buffer_size / 1000000000 << "GB\n";
     }
 
     // Initialize buffers

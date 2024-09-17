@@ -13,18 +13,32 @@
 #include <data_structure/graph_access.h>
 #include <data_structure/mutable_graph.h>
 
-MCSketchAlg::MCSketchAlg(node_id_t num_vertices, size_t seed, int _max_sketch_graphs, CCAlgConfiguration config)
+MCSketchAlg::MCSketchAlg(node_id_t num_vertices, bool cuda_uvm, size_t seed, Bucket* buckets, int _max_sketch_graphs, CCAlgConfiguration config)
     : num_vertices(num_vertices), seed(seed), dsu(num_vertices), config(config) {
   representatives = new std::set<node_id_t>();
   max_sketch_graphs = _max_sketch_graphs;
-  num_sketch_graphs = 0; // Initially 0 sketch graph
   vec_t sketch_vec_len = Sketch::calc_vector_length(num_vertices);
   size_t sketch_num_samples = Sketch::calc_cc_samples(num_vertices, config.get_sketches_factor());
+  size_t sketch_num_columns = sketch_num_samples * Sketch::default_cols_per_sample;
+  size_t sketch_bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_vertices));
+  size_t sketch_num_buckets = sketch_num_columns * sketch_bkt_per_col + 1;
 
   sketches = new Sketch *[num_vertices * max_sketch_graphs];
 
-  // Create a sample sketch for the driver
-  sketches[0] = new Sketch(sketch_vec_len, seed, sketch_num_samples);
+  if (cuda_uvm) {
+    for (int graph_id = 0; graph_id < max_sketch_graphs; graph_id++) {
+      for (node_id_t i = 0; i < num_vertices; ++i) {
+        sketches[(graph_id * num_vertices) + i] = new Sketch(sketch_vec_len, seed, i, &buckets[graph_id * num_vertices * sketch_num_buckets], sketch_num_samples);
+      }
+    }
+  }
+  else {
+    for (int graph_id = 0; graph_id < max_sketch_graphs; graph_id++) {
+      for (node_id_t i = 0; i < num_vertices; ++i) {
+        sketches[(graph_id * num_vertices) + i] = new Sketch(sketch_vec_len, seed, sketch_num_samples);
+      }
+    }
+  }
 
   for (node_id_t i = 0; i < num_vertices; ++i) {
     representatives->insert(i);
@@ -76,7 +90,7 @@ MCSketchAlg::MCSketchAlg(node_id_t num_vertices, size_t seed, std::ifstream &bin
 }
 
 MCSketchAlg::~MCSketchAlg() {
-  for (size_t i = 0; i < num_vertices * num_sketch_graphs; ++i) delete sketches[i];
+  for (size_t i = 0; i < num_vertices * max_sketch_graphs; ++i) delete sketches[i];
   delete[] sketches;
   if (delta_sketches != nullptr) {
     for (size_t i = 0; i < num_delta_sketches; i++) delete delta_sketches[i];
@@ -756,8 +770,8 @@ void MCSketchAlg::k_boruvka_emulation(int graph_id) {
   }
   last_query_rounds = round_num;
 
-  dsu_valid = true;
-  shared_dsu_valid = true;
+  //dsu_valid = true;
+  //shared_dsu_valid = true;
   update_locked = false;
 }
 

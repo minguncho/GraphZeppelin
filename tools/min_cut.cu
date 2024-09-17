@@ -10,6 +10,7 @@
 
 static bool cert_clean_up = false;
 static bool shutdown = false;
+static bool cudaUVM_enabled = true;
 constexpr double epsilon = 0.75;
 
 static double get_max_mem_used() {
@@ -102,7 +103,7 @@ int main(int argc, char **argv) {
   std::cout << "Total num_graphs: " << num_graphs << "\n";
 
   auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
-  auto mc_config = CCAlgConfiguration().batch_factor(3);
+  auto mc_config = CCAlgConfiguration().batch_factor(1);
 
   // Get variables from sketch
   // (1) num_samples (2) num_columns (3) bkt_per_col (4) num_buckets
@@ -111,6 +112,11 @@ int main(int argc, char **argv) {
   sketchParams.num_columns = sketchParams.num_samples * Sketch::default_cols_per_sample;
   sketchParams.bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_nodes));
   sketchParams.num_buckets = sketchParams.num_columns * sketchParams.bkt_per_col + 1;
+
+  std::cout << "num_samples: " << sketchParams.num_samples << "\n";
+  std::cout << "num_buckets: " << sketchParams.num_buckets << "\n";
+  std::cout << "num_columns: " << sketchParams.num_columns << "\n";
+  std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
 
   // Total bytes of sketching datastructure of one subgraph
   int w = 4; // 4 bytes when num_nodes < 2^32
@@ -149,8 +155,20 @@ int main(int argc, char **argv) {
   // Reconfigure sketches_factor based on reduced_k
   mc_config.sketches_factor(reduced_k);
 
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, get_seed(), sketchParams, 
+  std::cout << "CUDA UVM Enabled: " << cudaUVM_enabled << "\n";
+  sketchParams.cudaUVM_enabled = cudaUVM_enabled;
+  if (cudaUVM_enabled) {
+    // Allocate memory for buckets
+    Bucket* cudaUVM_buckets;
+    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, max_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    sketchParams.cudaUVM_buckets = cudaUVM_buckets;
+  }
+
+  // Getting sketch seed
+  sketchParams.seed = get_seed();
+  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, sketchParams, 
     num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, initial_sketch_graphs, mc_config};
+
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};
 
   auto ins_start = std::chrono::steady_clock::now();
@@ -161,6 +179,7 @@ int main(int argc, char **argv) {
   auto flush_start = std::chrono::steady_clock::now();
   driver.prep_query(KSPANNINGFORESTS);
   mc_gpu_alg.apply_flush_updates();
+
   // Re-measure flush_end to include time taken for applying delta sketches from flushing
   auto flush_end = std::chrono::steady_clock::now();
 
@@ -188,7 +207,7 @@ int main(int argc, char **argv) {
   for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
     std::vector<Edge> SFs_edges;
     std::set<Edge> edges;
-    
+
     if (graph_id >= num_sketch_graphs) { // Get Spanning forests from adj list
       std::cout << "S" << graph_id << " (Adj. list):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();

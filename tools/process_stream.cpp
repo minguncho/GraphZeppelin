@@ -85,7 +85,13 @@ int main(int argc, char **argv) {
   std::cout << std::endl;
 
   auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
+  driver_config.gutter_conf().buffer_exp(20).wq_batch_per_elm(8);
   auto cc_config = CCAlgConfiguration().batch_factor(1);
+
+  /*auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
+  driver_config.gutter_conf().buffer_exp(20).queue_factor(8).wq_batch_per_elm(32);
+  auto cc_config = CCAlgConfiguration().batch_factor(1);*/
+
   CCSketchAlg cc_alg{num_nodes, get_seed(), cc_config};
   GraphSketchDriver<CCSketchAlg> driver{&cc_alg, &stream, driver_config, reader_threads};
 

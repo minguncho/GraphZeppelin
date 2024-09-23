@@ -101,10 +101,10 @@ int main(int argc, char **argv) {
       // Reset delta sketch
       delta_sketches[thr_id]->zero_contents();
 
-      node_id_t src_vertex = batch_id / num_nodes;
+      node_id_t src_vertex = batch_id;
 
       for (int update_id = 0; update_id < num_updates_per_batch; update_id++) {
-        delta_sketches[thr_id]->update(static_cast<vec_t>(concat_pairing_fn(src_vertex, update_id % num_nodes)));
+        delta_sketches[thr_id]->update(static_cast<vec_t>(concat_pairing_fn(src_vertex, update_id)));
       }
     }
   };

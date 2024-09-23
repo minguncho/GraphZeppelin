@@ -90,23 +90,23 @@ public:
 
   }
 
-  void process_batch_UVM(node_id_t src_vertex, const std::vector<node_id_t> &dst_vertices) {
+  void process_batch_UVM(node_id_t src_vertex, const node_id_t* dst_vertices, size_t dst_vertices_size) {
     size_t start_index = buffer_id * num_batch_per_buffer * batch_size;
 
     auto edge_fill_start = std::chrono::steady_clock::now();
     int count = 0;
-    for (vec_t i = batch_offset; i < batch_offset + dst_vertices.size(); i++) {
+    for (vec_t i = batch_offset; i < batch_offset + dst_vertices_size; i++) {
       h_edgeUpdates[i] = dst_vertices[count];
       count++;
     }
     edge_fill_time += std::chrono::steady_clock::now() - edge_fill_start;
 
     int start_batch_id = buffer_id * num_batch_per_buffer;
-    h_update_sizes[start_batch_id + batch_count] = dst_vertices.size();
+    h_update_sizes[start_batch_id + batch_count] = dst_vertices_size;
     h_update_src[start_batch_id + batch_count] = src_vertex;
     h_update_start_index[start_batch_id + batch_count] = batch_offset - start_index;
 
-    batch_offset += dst_vertices.size();
+    batch_offset += dst_vertices_size;
     batch_count++;
 
     if (batch_count == batch_limit) { // Buffer will go over with new batch, start GPU
@@ -137,23 +137,23 @@ public:
     }
   }
 
-  void process_batch_default(node_id_t src_vertex, const std::vector<node_id_t> &dst_vertices) {
+  void process_batch_default(node_id_t src_vertex, const node_id_t* dst_vertices, size_t dst_vertices_size) {
     size_t start_index = buffer_id * num_batch_per_buffer * batch_size;
 
     auto edge_fill_start = std::chrono::steady_clock::now();
     int count = 0;
-    for (vec_t i = batch_offset; i < batch_offset + dst_vertices.size(); i++) {
+    for (vec_t i = batch_offset; i < batch_offset + dst_vertices_size; i++) {
       h_edgeUpdates[i] = dst_vertices[count];
       count++;
     }
     edge_fill_time += std::chrono::steady_clock::now() - edge_fill_start;
 
     int start_batch_id = buffer_id * num_batch_per_buffer;
-    h_update_sizes[start_batch_id + batch_count] = dst_vertices.size();
+    h_update_sizes[start_batch_id + batch_count] = dst_vertices_size;
     h_update_src[start_batch_id + batch_count] = src_vertex;
     h_update_start_index[start_batch_id + batch_count] = batch_offset - start_index;
 
-    batch_offset += dst_vertices.size();
+    batch_offset += dst_vertices_size;
     batch_count++;
 
     if (batch_count == batch_limit) { // Buffer will go over with new batch, start GPU
@@ -195,13 +195,13 @@ public:
     }
   }
 
-  void process_batch(node_id_t src_vertex, const std::vector<node_id_t> &dst_vertices) {
+  void process_batch(node_id_t src_vertex, const node_id_t* dst_vertices, size_t dst_vertices_size) {
     auto process_start = std::chrono::steady_clock::now();
     if (sketchParams.cudaUVM_enabled) {
-      process_batch_UVM(src_vertex, dst_vertices);
+      process_batch_UVM(src_vertex, dst_vertices, dst_vertices_size);
     }
     else {
-      process_batch_default(src_vertex, dst_vertices);
+      process_batch_default(src_vertex, dst_vertices, dst_vertices_size);
     }
     process_time += std::chrono::steady_clock::now() - process_start;
   }

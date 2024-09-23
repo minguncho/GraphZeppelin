@@ -184,6 +184,7 @@ class Sketch {
   inline size_t bucket_array_bytes() const { return num_buckets * sizeof(Bucket); }
 
   inline const Bucket* get_readonly_bucket_ptr() const { return (const Bucket*) buckets; }
+  inline Bucket* get_bucket_ptr() { return buckets; }
   inline uint64_t get_seed() const { return seed; }
   inline size_t column_seed(size_t column_idx) const { return seed + column_idx * 5; }
   inline size_t checksum_seed() const { return seed; }

@@ -97,7 +97,7 @@ class MCSubgraph {
 
   void insert_sketch_buffer(int thr_id, node_id_t src, std::vector<node_id_t> dst_vertices) {
     num_sketch_updates += dst_vertices.size();
-    cudaStreams[thr_id]->process_batch(src, dst_vertices);
+    cudaStreams[thr_id]->process_batch(src, &dst_vertices[0], dst_vertices.size());
   }
 
   void flush_sketch_buffers() {

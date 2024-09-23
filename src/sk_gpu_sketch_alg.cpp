@@ -1,10 +1,12 @@
 #include "sk_gpu_sketch_alg.h"
 
 #include <iostream>
+#include <thread>
 #include <vector>
 
 void SKGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
                                      const std::vector<node_id_t> &dst_vertices) {
+  //return;
   if (CCSketchAlg::get_update_locked()) throw UpdateLockedException();
   // Get offset
   size_t offset = edgeUpdate_offset.fetch_add(dst_vertices.size());
@@ -23,11 +25,86 @@ void SKGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   batch_start_index.insert({batch_id, offset});
 };
 
-void SKGPUSketchAlg::launch_gpu_kernel() {
+void SKGPUSketchAlg::launch_cpu_update() {
+  std::cout << "Performing sketch updates on CPU\n";
+  size_t num_batches = batch_count;
+
+  auto update_start = std::chrono::steady_clock::now();
+  auto task = [&](int thr_id) {
+    for (int batch_id = thr_id; batch_id < num_batches; batch_id += num_host_threads) {
+      // Reset delta sketch
+      delta_sketches[thr_id]->zero_contents();
+
+      node_id_t src_vertex = batch_src[batch_id];
+      size_t update_offset = batch_start_index[batch_id];
+
+      for (int update_id = 0; update_id < batch_sizes[batch_id]; update_id++) {
+        delta_sketches[thr_id]->update(static_cast<vec_t>(concat_pairing_fn(src_vertex, h_edgeUpdates[update_offset + update_id])));
+      }
+
+      apply_raw_buckets_update(src_vertex, delta_sketches[thr_id]->get_bucket_ptr());
+    }
+  };
+
+  std::vector<std::thread> threads;
+  for (int i = 0; i < num_host_threads; i++) threads.emplace_back(task, i);
+
+  // wait for threads to finish
+  for (int i = 0; i < num_host_threads; i++) threads[i].join();
+  std::chrono::duration<double> update_time = std::chrono::steady_clock::now() - update_start;
+
+  std::cout << "  CPU Sketch Update Finished.\n";
+  std::cout << "    Elapsed Time: " << update_time.count() << "\n";
+  std::cout << "    Throughput: " << num_updates / update_time.count() << "\n";
+}
+
+void SKGPUSketchAlg::launch_gpu_update() {
   // Declare GPU block count and size
-  num_device_threads = 1024;
   std::cout << "Num GPU threads per block: " << num_device_threads << "\n";
   std::cout << "Number of batches: " << batch_count << "\n";
+
+  size_t num_batches = batch_count;
+
+  auto task = [&](int thr_id) {
+    for (int batch_id = thr_id; batch_id < num_batches; batch_id += num_host_threads) {
+      
+      node_id_t src_vertex = batch_src[batch_id];
+      std::vector<node_id_t> dst_vertices;
+
+      size_t update_offset = batch_start_index[batch_id];
+
+      cudaStreams[thr_id]->process_batch(src_vertex, &h_edgeUpdates[update_offset], batch_sizes[batch_id]);
+    }
+  };
+
+  std::vector<std::thread> threads;
+  for (int i = 0; i < num_host_threads; i++) threads.emplace_back(task, i);
+
+  // wait for threads to finish
+  for (int i = 0; i < num_host_threads; i++) threads[i].join();
+  std::cout << "  GPU Sketch Update Finished.\n";
+  cudaDeviceSynchronize();
+}
+
+void SKGPUSketchAlg::flush_buffers() {
+  auto task = [&](int thr_id) {
+    cudaStreams[thr_id]->flush_buffers();
+  };
+  std::vector<std::thread> threads;
+  for (size_t i = 0; i < num_host_threads; i++) threads.emplace_back(task, i);
+
+  // wait for threads to finish
+  for (size_t i = 0; i < num_host_threads; i++) threads[i].join();
+  cudaDeviceSynchronize();
+}
+
+void SKGPUSketchAlg::launch_gpu_kernel() {
+  // Declare GPU block count and size
+  std::cout << "Num GPU threads per block: " << num_device_threads << "\n";
+  std::cout << "Number of batches: " << batch_count << "\n";
+
+  //num_updates = (batch_count * batch_size) / 2;
+  //std::cout << "New num_updates: "  << num_updates << "\n";
 
   std::cout << "Preparing update buffers for GPU...\n";
   gpuErrchk(cudaMallocHost(&h_update_sizes, batch_count * sizeof(vec_t)));
@@ -76,16 +153,66 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
   num_device_blocks = batch_count;
   std::cout << "Num GPU thread blocks: " << num_device_blocks << "\n";
   std::cout << "Launching GPU Kernel...\n";
+
+  float time;
+  cudaEvent_t start, stop;
+
+  gpuErrchk(cudaEventCreate(&start));
+  gpuErrchk(cudaEventCreate(&stop));
+
   auto kernel_start = std::chrono::steady_clock::now();
+  gpuErrchk(cudaEventRecord(start));
   cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
+  gpuErrchk(cudaEventRecord(stop));
   cudaDeviceSynchronize();
   auto kernel_end = std::chrono::steady_clock::now();
+
+  gpuErrchk(cudaEventSynchronize(stop));
+  gpuErrchk(cudaEventElapsedTime(&time, start, stop));
   
   std::cout << "  GPU Kernel Finished.\n";
   std::chrono::duration<double> kernel_time = kernel_end - kernel_start;
-  std::cout << "    Elapsed Time: " << kernel_time.count() << "\n";
-  std::cout << "    Throughput: " << num_updates / kernel_time.count() << "\n";
+  /*std::cout << "    Elapsed Time: " << kernel_time.count() << "\n";
+  std::cout << "    Throughput: " << num_updates / kernel_time.count() << "\n";*/
+  std::cout << "Device Sync + CPU - Kernel Execution Time (s):    " << kernel_time.count() << std::endl;
+  std::cout << "Device Sync + CPU - Rate (# of Edges / s):        " << num_updates / kernel_time.count() << std::endl;
+  std::cout << "CUDA Event - Kernel Execution Time (s):           " << time * 0.001 << std::endl;
+  std::cout << "CUDA Event - Rate (# of Edges / s):               " << num_updates / (time * 0.001) << std::endl;
 
   // Prefecth buffers back to CPU
   gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+}
+
+void SKGPUSketchAlg::display_time() {
+  int longest_thr_id = 0;
+  double longest_process_time = 0;
+
+  if (sketchParams.cudaUVM_enabled) {
+    for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+      double total_process_time = cudaStreams[thr_id]->process_time.count();
+      if (total_process_time > longest_process_time) {
+        longest_process_time = total_process_time;
+        longest_thr_id = thr_id;
+      }
+    }
+    std::cout << "\n";
+    std::cout << "Longest Thread # " << longest_thr_id << ": " << cudaStreams[longest_thr_id]->process_time.count()<< "\n";
+    std::cout << "  Edge Fill Time: " << cudaStreams[longest_thr_id]->edge_fill_time.count()<< "\n";
+    std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
+    std::cout << "  Sketch Prefetch Time: " << cudaStreams[longest_thr_id]->prefetch_time.count() << "\n";
+  }
+  else {
+    for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+      double total_process_time = cudaStreams[thr_id]->process_time.count();
+      if (total_process_time > longest_process_time) {
+        longest_process_time = total_process_time;
+        longest_thr_id = thr_id;
+      }
+    }
+    std::cout << "\n";
+    std::cout << "Longest Thread # " << longest_thr_id << ": " << cudaStreams[longest_thr_id]->process_time.count() << "\n";
+    std::cout << "  Edge Fill Time: " << cudaStreams[longest_thr_id]->edge_fill_time.count() << "\n";
+    std::cout << "  CUDA Stream Wait Time: " << cudaStreams[longest_thr_id]->wait_time.count() << "\n"; 
+    std::cout << "  Delta Sketch Applying Time: " << cudaStreams[longest_thr_id]->apply_delta_time.count() << "\n";
+  }
 }

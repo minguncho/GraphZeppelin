@@ -14,7 +14,7 @@ void CCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     small_batch_time[thr_id] += std::chrono::steady_clock::now() - small_batch_start;
   }
   else {
-    cudaStreams[thr_id]->process_batch(src_vertex, dst_vertices);
+    cudaStreams[thr_id]->process_batch(src_vertex, &dst_vertices[0], dst_vertices.size());
   }
 };
 

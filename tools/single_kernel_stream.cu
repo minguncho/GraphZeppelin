@@ -7,6 +7,9 @@
 #include <cuda_kernel.cuh>
 
 static bool shutdown = false;
+static bool using_gpu = true;
+static bool single_kernel = true;
+static bool cudaUVM_enabled = true;
 
 static double get_max_mem_used() {
   struct rusage data;
@@ -63,9 +66,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<SKGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4) {
+  if (argc != 5) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads, num_thread_blocks" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads GPU_ID" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -98,12 +101,23 @@ int main(int argc, char **argv) {
   std::cout << "num_columns: " << sketchParams.num_columns << "\n";
   std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
 
+  gpuErrchk(cudaSetDevice(std::atoi(argv[4])));
+
+
   // Allocate memory for buckets
-  Bucket* cudaUVM_buckets;
-  gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
-  sketchParams.cudaUVM_buckets = cudaUVM_buckets;
-  
-  sketchParams.cudaUVM_enabled = true; // For Single Kernel, always use CUDA UVM
+  sketchParams.cudaUVM_enabled = cudaUVM_enabled; 
+  if (using_gpu && (single_kernel || cudaUVM_enabled)) {
+    Bucket* cudaUVM_buckets;
+    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    sketchParams.cudaUVM_buckets = cudaUVM_buckets;
+    sketchParams.cudaUVM_enabled = true;
+
+    std::cout << "Single Kernel Mode: Will be using CUDA UVM\n";
+  }
+
+  if (!using_gpu) {
+    sketchParams.cudaUVM_enabled = false;
+  }
 
   // Getting sketch seed
   sketchParams.seed = get_seed();
@@ -112,9 +126,9 @@ int main(int argc, char **argv) {
   driver_config.gutter_conf().buffer_exp(20).queue_factor(8).wq_batch_per_elm(32);
   auto cc_config = CCAlgConfiguration().batch_factor(1);
 
-  SKGPUSketchAlg sk_gpu_alg{num_nodes, num_updates, num_threads, sketchParams, cc_config};
+  SKGPUSketchAlg sk_gpu_alg{using_gpu, num_nodes, num_updates, reader_threads, sketchParams, cc_config};
   GraphSketchDriver<SKGPUSketchAlg> driver{&sk_gpu_alg, &stream, driver_config, reader_threads};
-  
+
   auto ins_start = std::chrono::steady_clock::now();
   std::thread querier(track_insertions, num_updates, &driver, ins_start);
 
@@ -122,7 +136,7 @@ int main(int argc, char **argv) {
   std::cout << "Flushing...\n";
   std::cout << "# of Batches with full batch size: " << sk_gpu_alg.get_batch_count() << "\n";
 
-  auto flush_start = std::chrono::steady_clock::now();
+  auto cc_start = std::chrono::steady_clock::now();
   driver.prep_query(KSPANNINGFORESTS);
   auto flush_end = std::chrono::steady_clock::now();
 
@@ -130,23 +144,52 @@ int main(int argc, char **argv) {
   querier.join();
 
   // Perform all sketch updates in gpu
-  auto sketch_start = std::chrono::steady_clock::now();
-  sk_gpu_alg.launch_gpu_kernel();
-  auto sketch_end = std::chrono::steady_clock::now();
+  auto update_start = std::chrono::steady_clock::now();
+  std::chrono::duration<double> buffer_flush_time = std::chrono::nanoseconds::zero();
+  if (using_gpu) {
+    if (single_kernel) {
+      sk_gpu_alg.launch_gpu_kernel();
+    }
+    else {
+      sk_gpu_alg.launch_gpu_update();
+      auto buffer_flush_start = std::chrono::steady_clock::now();
+      sk_gpu_alg.flush_buffers();
+      buffer_flush_time += std::chrono::steady_clock::now() - buffer_flush_start;
+    }
+    sk_gpu_alg.display_time();
+  }
+  else {
+    sk_gpu_alg.launch_cpu_update();
+  }
+  auto update_end = std::chrono::steady_clock::now();
+
+  std::chrono::duration<double> pref_time = std::chrono::nanoseconds::zero();
+  if (cudaUVM_enabled) {
+    // Prefetch sketches back to CPU
+    auto pref_start = std::chrono::steady_clock::now();
+    gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+    pref_time += std::chrono::steady_clock::now() - pref_start;
+  }
 
   // Get CC
-  auto cc_start = std::chrono::steady_clock::now();
   auto CC_num = sk_gpu_alg.connected_components().size();
-  std::chrono::duration<double> cc_time = std::chrono::steady_clock::now() - cc_start;
-  std::chrono::duration<double> insert_time = flush_end - ins_start;
-  std::chrono::duration<double> flush_time = flush_end - flush_start;
-  std::chrono::duration<double> sketch_time = sketch_end - sketch_start;
+  std::chrono::duration<double> insert_time = update_end - ins_start;
 
-  std::cout << "GTS insertion time(sec):    " << insert_time.count() << std::endl;
-  std::cout << "  GTS insertion rate:           " << num_updates / insert_time.count() << std::endl;
-  std::cout << "  Flush Gutters(sec):           " << flush_time.count() << std::endl;
-  std::cout << "GPU time (sec):    " << sketch_time.count() << std::endl;
-  std::cout << "Total CC query latency:       " << cc_time.count() << std::endl;
+  std::chrono::duration<double> gts_flush_time = flush_end - cc_start;
+  std::chrono::duration<double> cc_alg_time = sk_gpu_alg.cc_alg_end - sk_gpu_alg.cc_alg_start;
+
+  std::chrono::duration<double> update_time = update_end - update_start;
+
+  std::cout << "Total Insertion time(sec):    " << insert_time.count() << std::endl;
+  std::cout << "  Total Insertion rate:           " << num_updates / insert_time.count() << std::endl;
+  std::cout << "Total CC query latency:       " << gts_flush_time.count() + buffer_flush_time.count() + pref_time.count() + cc_alg_time.count() << std::endl;
+  std::cout << "  Flushing (sec):             " << gts_flush_time.count() + buffer_flush_time.count() << std::endl;
+  std::cout << "    GTS (sec):                " << gts_flush_time.count() << std::endl;
+  std::cout << "    GPU Buffers (sec):        " << buffer_flush_time.count() << std::endl;
+  std::cout << "  UVM - Prefetch (sec):       " << pref_time.count() << std::endl;     
+  std::cout << "  Boruvka's Algorithm(sec):   " << cc_alg_time.count() << std::endl;
+  std::cout << "Sketch Update Time (sec):       " << update_time.count() << std::endl;
+  std::cout << "  Sketch Update rate:           " << num_updates / update_time.count() << std::endl;
   std::cout << "Connected Components:         " << CC_num << std::endl;
   std::cout << "Maximum Memory Usage(MiB):    " << get_max_mem_used() << std::endl;
 }

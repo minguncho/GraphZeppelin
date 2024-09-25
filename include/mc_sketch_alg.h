@@ -12,6 +12,7 @@
 #include <memory>
 #include <cassert>
 
+#include "cuda_kernel.cuh"
 #include "cc_alg_configuration.h"
 #include "return_types.h"
 #include "sketch.h"
@@ -100,9 +101,6 @@ class MCSketchAlg {
   Sketch **delta_sketches = nullptr;
   size_t num_delta_sketches;
 
-  std::vector<SubgraphTaggedUpdate> *store_buffers;
-  std::vector<SubgraphTaggedUpdate> *sketch_buffers;
-
   CCAlgConfiguration config;
 #ifdef VERIFY_SAMPLES_F
   std::unique_ptr<GraphVerifier> verifier;
@@ -156,8 +154,10 @@ class MCSketchAlg {
               CCAlgConfiguration config);
 
  public:
-  MCSketchAlg(node_id_t num_vertices, bool cuda_uvm, size_t seed, Bucket* first_graph_buckets, int _max_sketch_graphs, CCAlgConfiguration config = CCAlgConfiguration());
+  MCSketchAlg(node_id_t num_vertices, size_t seed, int _max_sketch_graphs, CCAlgConfiguration config = CCAlgConfiguration());
   ~MCSketchAlg();
+
+  void create_sketch_graph(int graph_id, SketchParams sketchParams);
 
   // construct a MC algorithm from a serialized file
   static MCSketchAlg * construct_from_serialized_data(
@@ -189,9 +189,6 @@ class MCSketchAlg {
           new Sketch(Sketch::calc_vector_length(num_vertices), seed,
                      Sketch::calc_cc_samples(num_vertices, config.get_sketches_factor()));
     }
-
-    store_buffers = new std::vector<SubgraphTaggedUpdate>[num_workers];
-    sketch_buffers = new std::vector<SubgraphTaggedUpdate>[num_workers];
   }
 
   /**

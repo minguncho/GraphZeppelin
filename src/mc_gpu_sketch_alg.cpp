@@ -20,8 +20,9 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     // double check to ensure no one else performed the allocation 
     if (first_es_subgraph > cur_subgraphs) {
-      create_sketch_graph(cur_subgraphs);
-      subgraphs[cur_subgraphs].initialize(num_host_threads);
+      create_sketch_graph(cur_subgraphs, sketchParams);
+      subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
+             sketchParams);
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
 
@@ -57,7 +58,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     cur_pos += num_to_process;
 
     for (size_t graph_id = 0; graph_id <= max_subgraph; graph_id++) {
-      subgraphs[graph_id]->apply_update_batch(thr_id, dst_data.src, update_buffers[graph_id]);
+      subgraphs[graph_id].apply_update_batch(thr_id, src_vertex, update_buffers[graph_id]);
     }
   }
 }
@@ -65,8 +66,6 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
                                      const std::vector<node_id_t> &dst_vertices) {
   if (MCSketchAlg::get_update_locked()) throw UpdateLockedException();
-
-  num_updates_seen += dst_vertices.size();
 
   node_id_t first_es_subgraph = edge_store.get_first_store_subgraph();
 
@@ -94,7 +93,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   }
 
   // Perform adjacency list updates
-  TaggedUpdateBatch &more_upds =
+  TaggedUpdateBatch more_upds =
       edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges);
   if (sketch_edges.size() > 0)
     complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
@@ -106,7 +105,6 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
-  std::cerr << "Number of updates seen = " << num_updates_seen << std::endl;
 
   // first ensure that all pending contractions are moved out of the edge store.
   while (edge_store.contract_in_progress()) {
@@ -117,7 +115,7 @@ void MCGPUSketchAlg::apply_flush_updates() {
   }
 
   for (size_t graph_id = 0; graph_id < cur_subgraphs; graph_id++) {
-    subgraphs[graph_id]->flush_sketch_buffers();
+    subgraphs[graph_id].flush();
   }
   
 

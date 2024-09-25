@@ -157,12 +157,12 @@ int main(int argc, char **argv) {
 
   std::cout << "CUDA UVM Enabled: " << cudaUVM_enabled << "\n";
   sketchParams.cudaUVM_enabled = cudaUVM_enabled;
-  if (cudaUVM_enabled) {
+  /*if (cudaUVM_enabled) {
     // Allocate memory for buckets
     Bucket* cudaUVM_buckets;
-    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, max_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, initial_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
     sketchParams.cudaUVM_buckets = cudaUVM_buckets;
-  }
+  }*/
 
   // Getting sketch seed
   sketchParams.seed = get_seed();

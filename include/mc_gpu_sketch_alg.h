@@ -4,12 +4,15 @@
 #include <map>
 #include "mc_sketch_alg.h"
 #include "cuda_kernel.cuh"
+#include "cuda_stream.h"
 #include "edge_store.h"
 
+class MCGPUSketchAlg;
 class SketchSubgraph {
  private:
   std::atomic<size_t> num_updates;
   CudaStream<MCGPUSketchAlg>** cuda_streams = nullptr;
+  SketchParams sketchParams;
 
   int num_streams;
 
@@ -24,22 +27,16 @@ class SketchSubgraph {
     }
   }
 
-  void initialize(int num_host_threads) {
+  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes, int num_host_threads, int num_device_threads, int num_batch_per_buffer,
+             SketchParams _sketchParams) {
     num_updates = 0;
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
 
-    // TODO: Figure out what to do with this
-    // Rewrite address for buckets 
+    // TODO - Make sure the sketchParams.cudaUVM_buckets is correct in here AND not being used anywhere else
     sketchParams = _sketchParams;
-    if (sketchParams.cudaUVM_enabled) {
-      sketchParams.cudaUVM_buckets =
-          &sketchParams.cudaUVM_buckets[graph_id * num_nodes * sketchParams.num_buckets];
-    }
-
     for (int i = 0; i < num_streams; i++) {
-      // TODO: Where do parameters come from?
-      cudaStreams[i] =
+      cuda_streams[i] =
           new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
                                          num_batch_per_buffer, sketchParams);
     }
@@ -50,12 +47,12 @@ class SketchSubgraph {
     if (cuda_streams == nullptr) 
       throw std::runtime_error("ERROR: Cannot call apply_update_batch() on uninit sketch subgraph");
     num_updates += dst_vertices.size();
-    cudaStreams[thr_id]->process_batch(src, dst_vertices);
+    cuda_streams[thr_id]->process_batch(src, &dst_vertices[0], dst_vertices.size());
   }
 
   void flush() {
     for (int thr_id = 0; thr_id < num_streams; thr_id++) {
-      cudaStreams[thr_id]->flush_buffers();
+      cuda_streams[thr_id]->flush_buffers();
     }
   }
 
@@ -101,11 +98,11 @@ private:
   // lossless edge storage
   EdgeStore edge_store;
 
-  // TODO: DO WE NEED THIS?
-  // Vector for storing information for each CUDA Stream
-  std::vector<CudaStream> streams;
+  // Number of edge updates in single batch
+  size_t batch_size;
 
-  CudaKernel cudaKernel;
+  std::vector<SubgraphTaggedUpdate> *store_buffers;
+  std::vector<SubgraphTaggedUpdate> *sketch_buffers;
 
   // helper functions for apply_update_batch()
   size_t get_and_apply_finished_stream(int thr_id);
@@ -117,9 +114,8 @@ public:
                 SketchParams _sketchParams, int _num_subgraphs,
                 int _max_sketch_graphs, int _k, size_t _sketch_bytes, int _initial_sketch_graphs,
                 CCAlgConfiguration config)
-     : MCSketchAlg(num_vertices, _sketchParams.cudaUVM_enabled, _sketchParams.seed,
-                   _sketchParams.cudaUVM_buckets, _max_sketch_graphs, config),
-       edge_store(seed, num_vertices, _sketch_bytes, _num_subgraphs, _initial_sketch_graphs) {
+     : MCSketchAlg(num_vertices, _sketchParams.seed, _max_sketch_graphs, config),
+       edge_store(_sketchParams.seed, num_vertices, _sketch_bytes, _num_subgraphs, _initial_sketch_graphs) {
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
 
@@ -141,7 +137,8 @@ public:
 
     // Create a bigger batch size to apply edge updates when subgraph is turning into sketch
     // representation
-    std::cout << "Batch Size: " << get_desired_updates_per_batch() << "\n";
+    batch_size = get_desired_updates_per_batch();
+    std::cout << "Batch Size: " << batch_size << "\n";
 
     int device_id = cudaGetDevice(&device_id);
     int device_count = 0;
@@ -159,18 +156,22 @@ public:
 
     // Initialize Sketch Graphs
     for (int i = 0; i < cur_subgraphs; i++) {
-      create_sketch_graph(i);
-      subgraphs[i].initialize(num_host_threads);
+      create_sketch_graph(i, sketchParams);
+      subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
+             sketchParams);
     }
+
+    store_buffers = new std::vector<SubgraphTaggedUpdate>[num_host_threads];
+    sketch_buffers = new std::vector<SubgraphTaggedUpdate>[num_host_threads];
 
     std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
     std::cout << "MCGPUSketchAlg's Initialization Duration: " << init_time.count() << std::endl;
   }
 
   ~MCGPUSketchAlg() {
-    for (size_t i = 0; i < cur_subgraphs; i++)
-      delete subgraphs[i];
     delete[] subgraphs;
+    delete[] store_buffers;
+    delete[] sketch_buffers;
   }
 
   /**

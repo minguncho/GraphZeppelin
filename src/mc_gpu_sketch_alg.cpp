@@ -35,9 +35,6 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   size_t cur_pos = 0;
 
   while (cur_pos < dsts_data.size()) {
-    int stream_id = get_and_apply_finished_stream(thr_id);
-    int start_index = stream_id * batch_size;
-
     // TODO: Make this memory allocation less sad
     // TODO: More accurately, probably want to use StandAloneGutters for each subgraph
     //       and directly insert to that instead of any buffering here. But I'm lazy.
@@ -76,7 +73,6 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     return;
   }
 
-  // TODO: This memory allocation is sad
   std::vector<SubgraphTaggedUpdate> &store_edges = store_buffers[thr_id];
   std::vector<SubgraphTaggedUpdate> &sketch_edges = sketch_buffers[thr_id];
 

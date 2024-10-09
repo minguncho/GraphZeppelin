@@ -25,6 +25,9 @@ MCSketchAlg::MCSketchAlg(node_id_t num_vertices, size_t seed, int _max_sketch_gr
 
   sketches = new Sketch *[num_vertices * max_sketch_graphs];
 
+  // Create a sample sketch for the driver
+  sketches[0] = new Sketch(sketch_vec_len, seed, sketch_num_samples);
+
   for (node_id_t i = 0; i < num_vertices; ++i) {
     representatives->insert(i);
   }

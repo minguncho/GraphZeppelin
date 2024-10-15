@@ -90,7 +90,7 @@ MCSketchAlg::~MCSketchAlg() {
   delete[] spanning_forest_mtx;
 }
 
-void MCSketchAlg::create_sketch_graph(int graph_id, SketchParams sketchParams) {
+void MCSketchAlg::create_sketch_graph(int graph_id, const SketchParams sketchParams) {
   // Validate graph_id
   if (graph_id >= max_sketch_graphs || graph_id != num_sketch_graphs) {
     std::cout << "Invalid graph_id in create_sketch_graph()! " << graph_id << "\n";
@@ -103,9 +103,6 @@ void MCSketchAlg::create_sketch_graph(int graph_id, SketchParams sketchParams) {
   size_t sketch_num_samples = Sketch::calc_cc_samples(num_vertices, config.get_sketches_factor());
 
   if (sketchParams.cudaUVM_enabled) {
-    Bucket* cudaUVM_buckets;
-    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_vertices * sketchParams.num_buckets * sizeof(Bucket)));
-    sketchParams.cudaUVM_buckets = cudaUVM_buckets;
     for (node_id_t i = 0; i < num_vertices; ++i) {
       sketches[(graph_id * num_vertices) + i] = new Sketch(sketch_vec_len, seed, i, cudaUVM_buckets, sketch_num_samples);
     }

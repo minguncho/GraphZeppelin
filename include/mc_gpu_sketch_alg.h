@@ -33,12 +33,17 @@ class SketchSubgraph {
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
 
-    // TODO - Make sure the sketchParams.cudaUVM_buckets is correct in here AND not being used anywhere else
     sketchParams = _sketchParams;
     for (int i = 0; i < num_streams; i++) {
       cuda_streams[i] =
           new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
                                          num_batch_per_buffer, sketchParams);
+    }
+
+    if (sketchParams.cudaUVM_enabled) {
+      Bucket* cudaUVM_buckets;
+      gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+      sketchParams.cudaUVM_buckets = cudaUVM_buckets;
     }
   }
 
@@ -59,11 +64,14 @@ class SketchSubgraph {
   size_t get_num_updates() {
     return num_updates;
   }
+
+  const SketchParams get_skt_params() { return sketchParams; }
 };
 
 class MCGPUSketchAlg : public MCSketchAlg {
 private:
-  SketchParams sketchParams;
+  // holds general info about the sketches. Copied and populated with actual info for subgraphs.
+  SketchParams default_skt_params;
 
   CudaKernel cudaKernel;
 
@@ -119,7 +127,7 @@ public:
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
 
-    sketchParams = _sketchParams;
+    default_skt_params = _sketchParams;
     num_nodes = num_vertices;
     k = _k;
     sketches_factor = config.get_sketches_factor();
@@ -149,16 +157,16 @@ public:
     std::cout << "CUDA Device ID: " << device_id << "\n";
     std::cout << "CUDA Device Number of SMs: " << deviceProp.multiProcessorCount << "\n";
 
-    size_t maxBytes = (sketchParams.num_buckets * sizeof(vec_t_cu)) +
-                      (sketchParams.num_buckets * sizeof(vec_hash_t));
+    size_t maxBytes = (default_skt_params.num_buckets * sizeof(vec_t_cu)) +
+                      (default_skt_params.num_buckets * sizeof(vec_hash_t));
     cudaKernel.updateSharedMemory(maxBytes);
     std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
 
     // Initialize Sketch Graphs
     for (int i = 0; i < cur_subgraphs; i++) {
-      create_sketch_graph(i, sketchParams);
       subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-             sketchParams);
+             default_skt_params);
+      create_sketch_graph(i, subgraphs[i].get_skt_params());
     }
 
     store_buffers = new std::vector<SubgraphTaggedUpdate>[num_host_threads];

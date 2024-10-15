@@ -157,7 +157,7 @@ class MCSketchAlg {
   MCSketchAlg(node_id_t num_vertices, size_t seed, int _max_sketch_graphs, CCAlgConfiguration config = CCAlgConfiguration());
   ~MCSketchAlg();
 
-  void create_sketch_graph(int graph_id, SketchParams sketchParams);
+  void create_sketch_graph(int graph_id, const SketchParams sketchParams);
 
   // construct a MC algorithm from a serialized file
   static MCSketchAlg * construct_from_serialized_data(

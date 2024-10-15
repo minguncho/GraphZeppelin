@@ -34,16 +34,17 @@ class SketchSubgraph {
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
 
     sketchParams = _sketchParams;
-    for (int i = 0; i < num_streams; i++) {
-      cuda_streams[i] =
-          new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
-                                         num_batch_per_buffer, sketchParams);
-    }
 
     if (sketchParams.cudaUVM_enabled) {
       Bucket* cudaUVM_buckets;
       gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
       sketchParams.cudaUVM_buckets = cudaUVM_buckets;
+    }
+
+    for (int i = 0; i < num_streams; i++) {
+      cuda_streams[i] =
+          new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
+                                         num_batch_per_buffer, sketchParams);
     }
   }
 

@@ -104,7 +104,7 @@ void MCSketchAlg::create_sketch_graph(int graph_id, const SketchParams sketchPar
 
   if (sketchParams.cudaUVM_enabled) {
     for (node_id_t i = 0; i < num_vertices; ++i) {
-      sketches[(graph_id * num_vertices) + i] = new Sketch(sketch_vec_len, seed, i, cudaUVM_buckets, sketch_num_samples);
+      sketches[(graph_id * num_vertices) + i] = new Sketch(sketch_vec_len, seed, i, sketchParams.cudaUVM_buckets, sketch_num_samples);
     }
   }
   else {

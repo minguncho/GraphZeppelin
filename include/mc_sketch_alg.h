@@ -77,7 +77,7 @@ struct MinCut {
 class MCSketchAlg {
  private:
   int max_sketch_graphs;
-  int num_sketch_graphs;
+  int num_sketch_graphs = 0;
   node_id_t num_vertices;
   size_t seed;
   bool update_locked = false;

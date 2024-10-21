@@ -457,7 +457,7 @@ CUDA_XXH CUDA_XXH64_hash_t CUDA_XXH3_len_4to8_64b(const cuda_xxh_u8* input, size
 {
     CUDA_XXH_ASSERT(input != NULL);
     CUDA_XXH_ASSERT(secret != NULL);
-    CUDA_XXH_ASSERT(4 <= len && len < 8);
+    CUDA_XXH_ASSERT(4 <= len && len <= 8);
     seed ^= (cuda_xxh_u64)CUDA_XXH_swap32((cuda_xxh_u32)seed) << 32;
     {   cuda_xxh_u32 const input1 = CUDA_XXH_readLE32(input);
         cuda_xxh_u32 const input2 = CUDA_XXH_readLE32(input + len - 4);
@@ -472,7 +472,7 @@ CUDA_XXH CUDA_XXH64_hash_t CUDA_XXH3_len_9to16_64b(const cuda_xxh_u8* input, siz
 {
     CUDA_XXH_ASSERT(input != NULL);
     CUDA_XXH_ASSERT(secret != NULL);
-    CUDA_XXH_ASSERT(8 <= len && len <= 16);
+    CUDA_XXH_ASSERT(9 <= len && len <= 16);
     {   cuda_xxh_u64 const bitflip1 = (CUDA_XXH_readLE64(secret+24) ^ CUDA_XXH_readLE64(secret+32)) + seed;
         cuda_xxh_u64 const bitflip2 = (CUDA_XXH_readLE64(secret+40) ^ CUDA_XXH_readLE64(secret+48)) - seed;
         cuda_xxh_u64 const input_lo = CUDA_XXH_readLE64(input)           ^ bitflip1;

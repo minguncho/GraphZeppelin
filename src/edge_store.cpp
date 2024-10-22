@@ -216,9 +216,9 @@ void EdgeStore::check_if_too_big() {
       vertex_contracted[i] = false;
     }
     needs_contraction = 0;
-  }
 
-  cur_subgraph++;
+    cur_subgraph++;
+  }
 
   std::cerr << "EdgeStore: Contracting to subgraphs " << cur_subgraph << " and above" << std::endl;
   std::cerr << "    num_edges = " << num_edges << std::endl;

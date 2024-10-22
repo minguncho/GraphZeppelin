@@ -103,17 +103,27 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 void MCGPUSketchAlg::apply_flush_updates() {
 
   // first ensure that all pending contractions are moved out of the edge store.
-  while (edge_store.contract_in_progress()) {
-    TaggedUpdateBatch more_upds =
-        edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
+  auto task = [&](int thr_id) {
+    while (edge_store.contract_in_progress()) {
+      TaggedUpdateBatch more_upds =
+          edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
 
-    if (more_upds.dsts_data.size() > 0) complete_update_batch(0, more_upds);
+      if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+    }
+  };
+
+  std::vector<std::thread> threads;
+  for (size_t t = 0; t < num_host_threads; t++) {
+    threads.emplace_back(task, t);
+  }
+  for (size_t t = 0; t < num_host_threads; t++) {
+    threads[t].join();
   }
 
+  // flush all subgraph
   for (size_t graph_id = 0; graph_id < cur_subgraphs; graph_id++) {
     subgraphs[graph_id].flush();
   }
-  
 
   // ensure streams have finished applying updates
   cudaDeviceSynchronize();

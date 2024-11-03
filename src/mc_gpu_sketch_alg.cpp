@@ -31,32 +31,16 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
+  node_id_t max_subgraph = 0;
 
-  size_t cur_pos = 0;
+  for (size_t i = 0; i < dsts_data.size(); i++) {
+     auto &dst_data = dsts_data[i];
+     node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
+     max_subgraph = std::max(update_subgraphs, max_subgraph);
 
-  while (cur_pos < dsts_data.size()) {
-    // TODO: Make this memory allocation less sad
-    // TODO: More accurately, probably want to use StandAloneGutters for each subgraph
-    //       and directly insert to that instead of any buffering here. But I'm lazy.
-    std::vector<std::vector<node_id_t>> update_buffers(max_sketch_graphs);
-    node_id_t max_subgraph = 0;
-
-    // limit amount we process here to a single batch
-    size_t num_to_process = std::min(size_t(batch_size), dsts_data.size() - cur_pos);
-    for (size_t i = cur_pos; i < cur_pos + num_to_process; i++) {
-      auto &dst_data = dsts_data[i];
-      node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
-      max_subgraph = std::max(update_subgraphs, max_subgraph);
-
-      for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
-        update_buffers[graph_id].push_back(dst_data.dst);
-      }
-    }
-    cur_pos += num_to_process;
-
-    for (size_t graph_id = 0; graph_id <= max_subgraph; graph_id++) {
-      subgraphs[graph_id].apply_update_batch(thr_id, src_vertex, update_buffers[graph_id]);
-    }
+     for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
+        subgraphs[graph_id].insert(thr_id, src_vertex, dst_data.dst);
+     }
   }
 }
 

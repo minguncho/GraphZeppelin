@@ -16,19 +16,30 @@ class SketchSubgraph {
 
   int num_streams;
 
- public:
+  std::vector<std::vector<node_id_t>> subgraph_gutters;
+  std::mutex gutter_locks;
 
+  void apply_update_batch(int thr_id, node_id_t src, std::vector<node_id_t> &dst_vertices) {
+    if (cuda_streams == nullptr) 
+      throw std::runtime_error("ERROR: Cannot call apply_update_batch() on uninit sketch subgraph");
+    num_updates += dst_vertices.size();
+    cuda_streams[thr_id]->process_batch(src, &dst_vertices[0], dst_vertices.size());
+  }
+
+ public:
   ~SketchSubgraph() {
     if (cuda_streams != nullptr) {
       for (int i = 0; i < num_streams; i++) {
         delete cuda_streams[i];
       }
       delete[] cuda_streams;
+      delete[] gutter_locks;
     }
   }
 
-  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes, int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-             SketchParams _sketchParams) {
+  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes,
+                  int num_host_threads, int num_device_threads, int num_batch_per_buffer,
+                  SketchParams _sketchParams) {
     num_updates = 0;
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
@@ -46,17 +57,34 @@ class SketchSubgraph {
           new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
                                          num_batch_per_buffer, sketchParams);
     }
+
+    subgraph_gutters.resize(num_nodes);
+    for (node_id_t i = 0; i < num_nodes; i++) {
+      subgraph_gutters[i].resize(sketchParams.batch_size);
+    }
+    gutter_locks = new std::mutex[num_nodes];
   }
 
+  // Insert an edge to the subgraph
+  // TODO: Make this thread-safe. Basically reusing the standalone gutters design?
+  void insert(int thr_id, node_id_t src, node_id_t dst) {
+    subgraph_gutters[src].push_back(dst);
 
-  void apply_update_batch(int thr_id, node_id_t src, const std::vector<node_id_t> &dst_vertices) {
-    if (cuda_streams == nullptr) 
-      throw std::runtime_error("ERROR: Cannot call apply_update_batch() on uninit sketch subgraph");
-    num_updates += dst_vertices.size();
-    cuda_streams[thr_id]->process_batch(src, &dst_vertices[0], dst_vertices.size());
+    if (subgraph_gutters[src].size() >= sketchParams.batch_size) {
+      apply_update_batch(thr_id, src, subgraph_gutters[src]);
+      subgraph_gutters[src].clear();
+    }
   }
 
   void flush() {
+    // flush subgraph gutters
+    for (node_id_t v = 0; v < num_nodes; v++) {
+      if (subgraph_gutters[v].size() > 0) {
+        apply_update_batch(0, v, subgraph_gutters[v]);
+      }
+    }
+
+    // flush cuda streams
     for (int thr_id = 0; thr_id < num_streams; thr_id++) {
       cuda_streams[thr_id]->flush_buffers();
     }

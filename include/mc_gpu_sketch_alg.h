@@ -42,7 +42,9 @@ class SketchSubgraph {
 
   void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes,
                   int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-                  SketchParams _sketchParams) : num_nodes(num_nodes) {
+                  size_t batch_size, SketchParams _sketchParams) {
+    num_nodes = num_nodes;
+    batch_size = batch_size;
     num_updates = 0;
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
@@ -60,8 +62,6 @@ class SketchSubgraph {
           new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
                                          num_batch_per_buffer, sketchParams);
     }
-
-    batch_size = sketching_alg->get_desired_updates_per_batch();
 
     subgraph_gutters.resize(num_nodes);
     for (node_id_t i = 0; i < num_nodes; i++) {
@@ -198,8 +198,8 @@ public:
 
     // Initialize Sketch Graphs
     for (int i = 0; i < cur_subgraphs; i++) {
-      subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-             default_skt_params);
+      subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads,
+                              num_batch_per_buffer, batch_size, default_skt_params);
       create_sketch_graph(i, subgraphs[i].get_skt_params());
     }
 

@@ -20,8 +20,9 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     // double check to ensure no one else performed the allocation 
     if (first_es_subgraph > cur_subgraphs) {
-      subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-             default_skt_params);
+      subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads,
+                                          num_device_threads, num_batch_per_buffer, batch_size,
+                                          default_skt_params);
       create_sketch_graph(cur_subgraphs, subgraphs[cur_subgraphs].get_skt_params());
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }

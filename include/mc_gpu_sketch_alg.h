@@ -16,8 +16,11 @@ class SketchSubgraph {
 
   int num_streams;
 
+  node_id_t num_nodes;
+  size_t batch_size;
+
   std::vector<std::vector<node_id_t>> subgraph_gutters;
-  std::mutex gutter_locks;
+  std::mutex *gutter_locks;
 
   void apply_update_batch(int thr_id, node_id_t src, std::vector<node_id_t> &dst_vertices) {
     if (cuda_streams == nullptr) 
@@ -39,7 +42,7 @@ class SketchSubgraph {
 
   void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes,
                   int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-                  SketchParams _sketchParams) {
+                  SketchParams _sketchParams) : num_nodes(num_nodes) {
     num_updates = 0;
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
@@ -58,9 +61,11 @@ class SketchSubgraph {
                                          num_batch_per_buffer, sketchParams);
     }
 
+    batch_size = sketching_alg->get_desired_updates_per_batch();
+
     subgraph_gutters.resize(num_nodes);
     for (node_id_t i = 0; i < num_nodes; i++) {
-      subgraph_gutters[i].resize(sketchParams.batch_size);
+      subgraph_gutters[i].resize(batch_size);
     }
     gutter_locks = new std::mutex[num_nodes];
   }
@@ -70,7 +75,7 @@ class SketchSubgraph {
   void insert(int thr_id, node_id_t src, node_id_t dst) {
     subgraph_gutters[src].push_back(dst);
 
-    if (subgraph_gutters[src].size() >= sketchParams.batch_size) {
+    if (subgraph_gutters[src].size() >= batch_size) {
       apply_update_batch(thr_id, src, subgraph_gutters[src]);
       subgraph_gutters[src].clear();
     }

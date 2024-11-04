@@ -67,6 +67,41 @@ class SketchSubgraph {
   }
 
   const SketchParams get_skt_params() { return sketchParams; }
+
+  void display_time() {
+    int longest_thr_id = 0;
+    double longest_process_time = 0;
+
+    if (sketchParams.cudaUVM_enabled) {
+      for (int thr_id = 0; thr_id < num_streams; thr_id++) {
+        double total_process_time = cuda_streams[thr_id]->process_time.count();
+        if (total_process_time > longest_process_time) {
+          longest_process_time = total_process_time;
+          longest_thr_id = thr_id;
+        }
+      }
+      std::cout << "Longest Thread # " << longest_thr_id << ": " << cuda_streams[longest_thr_id]->process_time.count() << "\n";
+      std::cout << "  Edge Fill Time: " << cuda_streams[longest_thr_id]->edge_fill_time.count() << "\n";
+      std::cout << "  CUDA Stream Wait Time: " << cuda_streams[longest_thr_id]->wait_time.count() << "\n"; 
+      std::cout << "  Sketch Prefetch Time: " << cuda_streams[longest_thr_id]->prefetch_time.count() << "\n";
+      std::cout << "\n";
+    }
+    else {
+      for (int thr_id = 0; thr_id < num_streams; thr_id++) {
+        double total_process_time = cuda_streams[thr_id]->process_time.count();
+        if (total_process_time > longest_process_time) {
+          longest_process_time = total_process_time;
+          longest_thr_id = thr_id;
+        }
+      }
+      std::cout << "Longest Thread # " << longest_thr_id << ": " << cuda_streams[longest_thr_id]->process_time.count() << "\n";
+      std::cout << "  Edge Fill Time: " << cuda_streams[longest_thr_id]->edge_fill_time.count() << "\n";
+      std::cout << "  CUDA Stream Wait Time: " << cuda_streams[longest_thr_id]->wait_time.count() << "\n"; 
+      std::cout << "  Delta Sketch Applying Time: " << cuda_streams[longest_thr_id]->apply_delta_time.count() << "\n";
+      std::cout << "\n";
+    }
+  }
+
 };
 
 class MCGPUSketchAlg : public MCSketchAlg {
@@ -96,7 +131,7 @@ private:
   int num_reader_threads;
 
   // Maximum number of edge updates in one batch
-  int num_batch_per_buffer = 1080;
+  int num_batch_per_buffer = 540;
   
   // Number of subgraphs in sketch representation
   int max_sketch_graphs; // Max. number of subgraphs that can be in sketch graphs
@@ -110,8 +145,8 @@ private:
   // Number of edge updates in single batch
   size_t batch_size;
 
-  std::vector<SubgraphTaggedUpdate> *store_buffers;
-  std::vector<SubgraphTaggedUpdate> *sketch_buffers;
+  SubgraphTaggedUpdate **store_buffers;
+  SubgraphTaggedUpdate **sketch_buffers;
 
   // helper functions for apply_update_batch()
   size_t get_and_apply_finished_stream(int thr_id);
@@ -169,9 +204,14 @@ public:
              default_skt_params);
       create_sketch_graph(i, subgraphs[i].get_skt_params());
     }
+    
+    store_buffers = new SubgraphTaggedUpdate*[num_host_threads];
+    sketch_buffers = new SubgraphTaggedUpdate*[num_host_threads];
 
-    store_buffers = new std::vector<SubgraphTaggedUpdate>[num_host_threads];
-    sketch_buffers = new std::vector<SubgraphTaggedUpdate>[num_host_threads];
+    for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+      store_buffers[thr_id] = new SubgraphTaggedUpdate[batch_size];
+      sketch_buffers[thr_id] = new SubgraphTaggedUpdate[batch_size];
+    }
 
     std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - init_start;
     std::cout << "MCGPUSketchAlg's Initialization Duration: " << init_time.count() << std::endl;
@@ -179,6 +219,10 @@ public:
 
   ~MCGPUSketchAlg() {
     delete[] subgraphs;
+    for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+      delete[] store_buffers[thr_id];
+      delete[] sketch_buffers[thr_id];
+    }
     delete[] store_buffers;
     delete[] sketch_buffers;
   }
@@ -208,4 +252,11 @@ public:
   int get_num_sketch_graphs() { return cur_subgraphs; }
 
   size_t get_num_adjlist_edges() { return edge_store.get_num_edges(); }
+  void display_time() {
+    std::cout << "Displaying Overhead Information for each sketch subgraph...\n";
+    for (int subgraph_id = 0; subgraph_id < cur_subgraphs; subgraph_id++) {
+      std::cout << "Subgraph #" << subgraph_id << ":\n";
+      subgraphs[subgraph_id].display_time();
+    }
+  }
 };

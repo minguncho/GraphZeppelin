@@ -34,7 +34,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
   size_t cur_pos = 0;
 
-  while (cur_pos < dsts_data.size()) {
+  while (cur_pos < updates.dsts_data_size) {
     // TODO: Make this memory allocation less sad
     // TODO: More accurately, probably want to use StandAloneGutters for each subgraph
     //       and directly insert to that instead of any buffering here. But I'm lazy.
@@ -42,7 +42,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     node_id_t max_subgraph = 0;
 
     // limit amount we process here to a single batch
-    size_t num_to_process = std::min(size_t(batch_size), dsts_data.size() - cur_pos);
+    size_t num_to_process = std::min(size_t(batch_size), updates.dsts_data_size - cur_pos);
     for (size_t i = cur_pos; i < cur_pos + num_to_process; i++) {
       auto &dst_data = dsts_data[i];
       node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
@@ -69,13 +69,15 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // We only have an adjacency list so just directly insert
   if (first_es_subgraph == 0) {
     TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices);
-    if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+    if (more_upds.dsts_data_size > 0) complete_update_batch(thr_id, more_upds);
     return;
   }
 
-  std::vector<SubgraphTaggedUpdate> &store_edges = store_buffers[thr_id];
-  std::vector<SubgraphTaggedUpdate> &sketch_edges = sketch_buffers[thr_id];
+  SubgraphTaggedUpdate* store_edges = store_buffers[thr_id];
+  SubgraphTaggedUpdate* sketch_edges = sketch_buffers[thr_id];
 
+  int store_edge_count = 0;
+  int sketch_edge_count = 0;
   for (vec_t i = 0; i < dst_vertices.size(); i++) {
     // Determine the depth of current edge
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_vertices[i]));
@@ -83,32 +85,29 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
 
     if (subgraph >= first_es_subgraph) {
       // Adj. list
-      store_edges.push_back({subgraph, dst_vertices[i]});
+      store_edges[store_edge_count] = {subgraph, dst_vertices[i]};
+      store_edge_count++;
     }
-    sketch_edges.push_back({subgraph, dst_vertices[i]});
+    sketch_edges[sketch_edge_count] = {subgraph, dst_vertices[i]};
+    sketch_edge_count++;
   }
-
+  
   // Perform adjacency list updates
   TaggedUpdateBatch more_upds =
-      edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges);
-  if (sketch_edges.size() > 0)
-    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
-  if (more_upds.dsts_data.size() > 0)
+      edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges, store_edge_count);
+  if (sketch_edge_count > 0)
+    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges, sketch_edge_count});
+  if (more_upds.dsts_data_size > 0)
     complete_update_batch(thr_id, more_upds);
-
-  store_edges.clear();
-  sketch_edges.clear();
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
-
   // first ensure that all pending contractions are moved out of the edge store.
   auto task = [&](int thr_id) {
     while (edge_store.contract_in_progress()) {
       TaggedUpdateBatch more_upds =
           edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
-
-      if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+      if (more_upds.dsts_data_size > 0) complete_update_batch(thr_id, more_upds);
     }
   };
 

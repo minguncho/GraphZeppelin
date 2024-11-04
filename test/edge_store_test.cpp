@@ -25,7 +25,7 @@ TEST(EdgeStoreTest, no_contract) {
       ASSERT_TRUE(edges_added.insert({std::min(i, j), std::max(i, j)}).second);
     }
     auto more_upds = edge_store.insert_adj_edges(i, dsts);
-    ASSERT_EQ(more_upds.dsts_data.size(), 0);
+    ASSERT_EQ(more_upds.dsts_data_size, 0);
   }
 
   ASSERT_EQ(edge_store.get_num_edges(), edges_added.size());
@@ -72,9 +72,10 @@ TEST(EdgeStoreTest, contract) {
       }
       ASSERT_TRUE(edges_added.insert({src, dst}).second);
     }
-    auto more_upds = edge_store.insert_adj_edges(i, edge_store.get_first_store_subgraph(), dsts);
+    auto more_upds = edge_store.insert_adj_edges(i, edge_store.get_first_store_subgraph(), &dsts[0], dsts.size());
     node_id_t src = more_upds.src;
-    for (auto dst_data : more_upds.dsts_data) {
+    for (int data_id = 0; data_id < more_upds.dsts_data_size; data_id++) {
+      SubgraphTaggedUpdate dst_data = more_upds.dsts_data[data_id];
       ++num_returned[edge_store.get_first_store_subgraph() - 1];
       node_id_t s = std::min(src, dst_data.dst);
       node_id_t d = std::max(src, dst_data.dst);
@@ -85,7 +86,8 @@ TEST(EdgeStoreTest, contract) {
   while (edge_store.contract_in_progress()) {
     auto more_upds = edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
     node_id_t src = more_upds.src;
-    for (auto dst_data : more_upds.dsts_data) {
+    for (int data_id = 0; data_id < more_upds.dsts_data_size; data_id++) {
+      SubgraphTaggedUpdate dst_data = more_upds.dsts_data[data_id];
       ++num_returned[edge_store.get_first_store_subgraph() - 1];
       node_id_t s = std::min(src, dst_data.dst);
       node_id_t d = std::max(src, dst_data.dst);

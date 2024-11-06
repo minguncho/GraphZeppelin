@@ -92,7 +92,7 @@ class SketchSubgraph {
     // flush subgraph gutters
     for (node_id_t v = 0; v < num_nodes; v++) {
       if (subgraph_gutters[v].elms > 0) {
-        subgraph_gutters[v].resize(subgraph_gutters[v].elms);
+        subgraph_gutters[v].data.resize(subgraph_gutters[v].elms);
         apply_update_batch(0, v, subgraph_gutters[v].data);
         subgraph_gutters[v].elms = 0;
         subgraph_gutters[v].data.resize(batch_size);

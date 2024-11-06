@@ -65,7 +65,7 @@ class SketchSubgraph {
 
     subgraph_gutters.resize(num_nodes);
     for (node_id_t i = 0; i < num_nodes; i++) {
-      subgraph_gutters[i].resize(batch_size);
+      subgraph_gutters[i].reserve(batch_size);
     }
     gutter_locks = new std::mutex[num_nodes];
   }
@@ -86,6 +86,7 @@ class SketchSubgraph {
     for (node_id_t v = 0; v < num_nodes; v++) {
       if (subgraph_gutters[v].size() > 0) {
         apply_update_batch(0, v, subgraph_gutters[v]);
+        subgraph_gutters[v].clear();
       }
     }
 

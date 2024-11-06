@@ -10,6 +10,11 @@
 class MCGPUSketchAlg;
 class SketchSubgraph {
  private:
+  struct Gutter {
+    size_t elms;
+    std::vector<node_id_t> data;
+  };
+
   std::atomic<size_t> num_updates;
   CudaStream<MCGPUSketchAlg>** cuda_streams = nullptr;
   SketchParams sketchParams;
@@ -19,7 +24,8 @@ class SketchSubgraph {
   node_id_t num_nodes;
   size_t batch_size;
 
-  std::vector<std::vector<node_id_t>> subgraph_gutters;
+  std::vector<Gutter> subgraph_gutters;
+
   std::mutex *gutter_locks;
 
   void apply_update_batch(int thr_id, node_id_t src, std::vector<node_id_t> &dst_vertices) {
@@ -65,7 +71,7 @@ class SketchSubgraph {
 
     subgraph_gutters.resize(num_nodes);
     for (node_id_t i = 0; i < num_nodes; i++) {
-      subgraph_gutters[i].reserve(batch_size);
+      subgraph_gutters[i].data.resize(batch_size);
     }
     gutter_locks = new std::mutex[num_nodes];
   }
@@ -73,11 +79,12 @@ class SketchSubgraph {
   // Insert an edge to the subgraph
   // TODO: Make this thread-safe. Basically reusing the standalone gutters design?
   void insert(int thr_id, node_id_t src, node_id_t dst) {
-    subgraph_gutters[src].push_back(dst);
+    auto &gutter = subgraph_gutters[src];
+    gutter.data[gutter.elms++] = dst;
 
-    if (subgraph_gutters[src].size() >= batch_size) {
-      apply_update_batch(thr_id, src, subgraph_gutters[src]);
-      subgraph_gutters[src].clear();
+    if (gutter.elms >= batch_size) {
+      apply_update_batch(thr_id, src, gutter.data);
+      gutter.elms = 0;
     }
   }
 

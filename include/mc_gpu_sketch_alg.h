@@ -11,7 +11,7 @@ class MCGPUSketchAlg;
 class SketchSubgraph {
  private:
   struct Gutter {
-    size_t elms;
+    size_t elms = 0;
     std::vector<node_id_t> data;
   };
 
@@ -46,11 +46,11 @@ class SketchSubgraph {
     }
   }
 
-  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes,
+  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
                   int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-                  size_t batch_size, SketchParams _sketchParams) {
-    num_nodes = num_nodes;
-    batch_size = batch_size;
+                  size_t _batch_size, SketchParams _sketchParams) {
+    num_nodes = _num_nodes;
+    batch_size = _batch_size;
     num_updates = 0;
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
@@ -91,9 +91,11 @@ class SketchSubgraph {
   void flush() {
     // flush subgraph gutters
     for (node_id_t v = 0; v < num_nodes; v++) {
-      if (subgraph_gutters[v].size() > 0) {
-        apply_update_batch(0, v, subgraph_gutters[v]);
-        subgraph_gutters[v].clear();
+      if (subgraph_gutters[v].elms > 0) {
+        subgraph_gutters[v].resize(subgraph_gutters[v].elms);
+        apply_update_batch(0, v, subgraph_gutters[v].data);
+        subgraph_gutters[v].elms = 0;
+        subgraph_gutters[v].data.resize(batch_size);
       }
     }
 

@@ -34,13 +34,21 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   auto &dsts_data = updates.dsts_data;
   node_id_t max_subgraph = 0;
 
+  std::vector<std::array<node_id_t, 16>> subgraph_buffers;
+  subgraphs.resize(max_subgraph);
+  std::array<size_t, 16> buffer_sizes;
+
   for (size_t i = 0; i < dsts_data.size(); i++) {
     auto &dst_data = dsts_data[i];
     node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
     max_subgraph = std::max(update_subgraphs, max_subgraph);
 
     for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
-      subgraphs[graph_id].insert(thr_id, src_vertex, dst_data.dst);
+      subgraph_buffers[src_vertex][buffer_sizes[src_vertex]++] = dsts_data.dst;
+      if (buffer_sizes[src_vertex]] >= 16) {
+        subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[src_vertex]);
+        buffer_sizes[src_vertex] = 0;
+      }
     }
   }
 }

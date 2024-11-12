@@ -77,9 +77,10 @@ class SketchSubgraph {
   }
 
   // Insert an edge to the subgraph
-  // TODO: Make this thread-safe. Basically reusing the standalone gutters design?
-  void insert(int thr_id, node_id_t src, node_id_t dst) {
+  void batch_insert(int thr_id, node_id_t src, node_id_t dst) {
     auto &gutter = subgraph_gutters[src];
+    std::lock_guard<std::mutex> lk(gutter_locks[src]);
+
     gutter.data[gutter.elms++] = dst;
 
     if (gutter.elms >= batch_size) {

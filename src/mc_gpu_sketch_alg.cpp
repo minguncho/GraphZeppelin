@@ -81,7 +81,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   for (vec_t i = 0; i < dst_vertices.size(); i++) {
     // Determine the depth of current edge
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_vertices[i]));
-    size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, 0, num_subgraphs-1);
+    size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, default_skt_params.seed, num_subgraphs-1);
 
     if (subgraph >= first_es_subgraph) {
       // Adj. list
@@ -91,7 +91,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     sketch_edges[sketch_edge_count] = {subgraph, dst_vertices[i]};
     sketch_edge_count++;
   }
-  
+
   // Perform adjacency list updates
   TaggedUpdateBatch more_upds =
       edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges, store_edge_count);

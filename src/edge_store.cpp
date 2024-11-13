@@ -45,9 +45,9 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
         if (data.subgraph < cur_first_es_subgraph) continue; // skip stuff that shouldn't be added
       }
 
-      if (!adjlist[src].insert(data).second) {
+      if (!adjlist[src].insert({dst, data.subgraph}).second) {
         // Current edge already exist, so delete
-        if (adjlist[src].erase(data) == 0) {
+        if (adjlist[src].erase(dst) == 0) {
           std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
           exit(EXIT_FAILURE);
         }
@@ -87,9 +87,9 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
         if (data.subgraph < cur_first_es_subgraph) continue; // skip stuff that shouldn't be added
       }
 
-      if (!adjlist[src].insert(data).second) {
+      if (!adjlist[src].insert({data.dst, data.subgraph}).second) {
         // Current edge already exist, so delete
-        if (adjlist[src].erase(data) == 0) {
+        if (adjlist[src].erase(data.dst) == 0) {
           std::cerr << "ERROR: We found a duplicate but couldn't remove???" << std::endl;
           exit(EXIT_FAILURE);
         }
@@ -115,8 +115,9 @@ std::vector<Edge> EdgeStore::get_edges() {
   ret.reserve(num_edges);
 
   for (node_id_t src = 0; src < num_vertices; src++) {
-    for (auto data : adjlist[src])
-      ret.push_back({src, data.dst});
+    for (auto data : adjlist[src]) {
+      ret.push_back({src, data.first});
+    }
   }
 
   return ret;
@@ -129,8 +130,8 @@ void EdgeStore::verify_contract_complete() {
     if (adjlist[i].size() == 0) continue;
 
     auto it = adjlist[i].begin();
-    if (it->subgraph < cur_subgraph) {
-      std::cerr << "ERROR: Found " << it->subgraph << ", " << it->dst << " which should have been deleted by contraction to " << cur_subgraph << std::endl;
+    if (it->second < cur_subgraph) {
+      std::cerr << "ERROR: Found " << it->second << ", " << it->first  << " which should have been deleted by contraction to " << cur_subgraph << std::endl;
       exit(EXIT_FAILURE);
     }
   }
@@ -153,19 +154,18 @@ std::vector<SubgraphTaggedUpdate> EdgeStore::vertex_contract(node_id_t src) {
 
   ret.reserve(adjlist[src].size());
   int edges_delta = 0;
-  auto it_begin = adjlist[src].begin();
-  auto it = it_begin;
-  auto delete_it = it_begin;
-  for (; it != adjlist[src].end(); it++) {
-    if (it->subgraph < cur_subgraph) {
-      delete_it++;
+  for (auto it = adjlist[src].begin(); it != adjlist[src].end();) {
+    ret.push_back({src, it->first});
+    if (it->second < cur_subgraph) {
       edges_delta--;
+      it = adjlist[src].erase(it);
     }
-    ret.push_back(*it);
+    else {
+      ++it;
+    }
+
   }
 
-  // now perform the deletion
-  adjlist[src].erase(it_begin, delete_it);
   num_edges += edges_delta;
   return ret;
 }

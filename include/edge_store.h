@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <mutex>
-#include <set>
+#include <unordered_map>
 #include <vector>
 #include <iostream>
 
@@ -19,7 +19,7 @@ class EdgeStore {
   std::atomic<edge_id_t> num_edges;
   std::atomic<node_id_t> needs_contraction;
 
-  std::vector<std::set<SubgraphTaggedUpdate>> adjlist;
+  std::vector<std::unordered_map<node_id_t, node_id_t>> adjlist;
 
   // This is a vector of booleans BUT we don't want to use vector<bool> because its not
   // multithread friendly

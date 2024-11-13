@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cmath>
+#include <cstring>
 #include <map>
-#include "mc_sketch_alg.h"
+
 #include "cuda_kernel.cuh"
 #include "cuda_stream.h"
 #include "edge_store.h"
+#include "mc_sketch_alg.h"
 
 class MCGPUSketchAlg;
 class SketchSubgraph {
@@ -77,15 +79,23 @@ class SketchSubgraph {
   }
 
   // Insert an edge to the subgraph
-  void batch_insert(int thr_id, node_id_t src, node_id_t dst) {
+  void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 16> dsts,
+                    const size_t num_elms) {
     auto &gutter = subgraph_gutters[src];
     std::lock_guard<std::mutex> lk(gutter_locks[src]);
 
-    gutter.data[gutter.elms++] = dst;
+    // pre flush updates
+    const size_t capacity = batch_size - gutter.elms;
+    std::memcpy(&gutter.data[gutter.elms], dsts.data(),
+                sizeof(node_id_t) * std::min(num_elms, capacity));
+    gutter.elms += std::min(num_elms, capacity);
 
-    if (gutter.elms >= batch_size) {
+    if (num_elms >= capacity) {
       apply_update_batch(thr_id, src, gutter.data);
-      gutter.elms = 0;
+      size_t num_left = num_elms - capacity;
+      gutter.elms = num_left;
+
+      std::memcpy(&gutter.data[0], dsts.data() + capacity, sizeof(node_id_t) * num_left);
     }
   }
 

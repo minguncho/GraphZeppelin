@@ -32,23 +32,31 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
-  node_id_t max_subgraph = 0;
 
   std::vector<std::array<node_id_t, 16>> subgraph_buffers;
-  subgraphs.resize(max_subgraph);
+  subgraph_buffers.resize(first_es_subgraph);
   std::array<size_t, 16> buffer_sizes;
+  buffer_sizes.fill(0);
 
+  // put data into local buffers and when full move into subgraph's gutters
   for (size_t i = 0; i < dsts_data.size(); i++) {
     auto &dst_data = dsts_data[i];
     node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
-    max_subgraph = std::max(update_subgraphs, max_subgraph);
 
     for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
-      subgraph_buffers[src_vertex][buffer_sizes[src_vertex]++] = dsts_data.dst;
-      if (buffer_sizes[src_vertex]] >= 16) {
-        subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[src_vertex]);
-        buffer_sizes[src_vertex] = 0;
+      subgraph_buffers[graph_id][buffer_sizes[graph_id]++] = dst_data.dst;
+      if (buffer_sizes[graph_id] >= 16) {
+        subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[graph_id],
+                                         buffer_sizes[graph_id]);
+        buffer_sizes[graph_id] = 0;
       }
+    }
+  }
+
+  // flush our buffers
+  for (size_t i = 0; i < first_es_subgraph; i++) {
+    if (buffer_sizes[i] > 0) {
+      subgraphs[i].batch_insert(thr_id, src_vertex, subgraph_buffers[i], buffer_sizes[i]);
     }
   }
 }

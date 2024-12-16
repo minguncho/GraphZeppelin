@@ -20,8 +20,9 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     // double check to ensure no one else performed the allocation 
     if (first_es_subgraph > cur_subgraphs) {
-      subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-             default_skt_params);
+      subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads,
+                                          num_device_threads, num_batch_per_buffer, batch_size,
+                                          default_skt_params);
       create_sketch_graph(cur_subgraphs, subgraphs[cur_subgraphs].get_skt_params());
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
@@ -32,30 +33,30 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
 
-  size_t cur_pos = 0;
+  std::vector<std::array<node_id_t, 16>> subgraph_buffers;
+  subgraph_buffers.resize(first_es_subgraph);
+  std::array<size_t, 16> buffer_sizes;
+  buffer_sizes.fill(0);
 
-  while (cur_pos < dsts_data.size()) {
-    // TODO: Make this memory allocation less sad
-    // TODO: More accurately, probably want to use StandAloneGutters for each subgraph
-    //       and directly insert to that instead of any buffering here. But I'm lazy.
-    std::vector<std::vector<node_id_t>> update_buffers(max_sketch_graphs);
-    node_id_t max_subgraph = 0;
+  // put data into local buffers and when full move into subgraph's gutters
+  for (size_t i = 0; i < dsts_data.size(); i++) {
+    auto &dst_data = dsts_data[i];
+    node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
 
-    // limit amount we process here to a single batch
-    size_t num_to_process = std::min(size_t(batch_size), dsts_data.size() - cur_pos);
-    for (size_t i = cur_pos; i < cur_pos + num_to_process; i++) {
-      auto &dst_data = dsts_data[i];
-      node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
-      max_subgraph = std::max(update_subgraphs, max_subgraph);
-
-      for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
-        update_buffers[graph_id].push_back(dst_data.dst);
+    for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
+      subgraph_buffers[graph_id][buffer_sizes[graph_id]++] = dst_data.dst;
+      if (buffer_sizes[graph_id] >= 16) {
+        subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[graph_id],
+                                         buffer_sizes[graph_id]);
+        buffer_sizes[graph_id] = 0;
       }
     }
-    cur_pos += num_to_process;
+  }
 
-    for (size_t graph_id = 0; graph_id <= max_subgraph; graph_id++) {
-      subgraphs[graph_id].apply_update_batch(thr_id, src_vertex, update_buffers[graph_id]);
+  // flush our buffers
+  for (size_t i = 0; i < first_es_subgraph; i++) {
+    if (buffer_sizes[i] > 0) {
+      subgraphs[i].batch_insert(thr_id, src_vertex, subgraph_buffers[i], buffer_sizes[i]);
     }
   }
 }

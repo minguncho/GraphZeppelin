@@ -186,14 +186,15 @@ int main(int argc, char **argv) {
   // Display number of inserted updates to every subgraphs
   mc_gpu_alg.print_subgraph_edges();
 
-  std::chrono::duration<double> sampling_forests_time = std::chrono::nanoseconds::zero();
-  std::chrono::duration<double> trim_reading_time = std::chrono::nanoseconds::zero();
-  std::chrono::duration<double> trim_flushing_time = std::chrono::nanoseconds::zero();
+  std::chrono::duration<double> sampling_forests_adj_time = std::chrono::nanoseconds::zero();
+  std::chrono::duration<double> sampling_forests_sketch_time = std::chrono::nanoseconds::zero();
   std::chrono::duration<double> viecut_time = std::chrono::nanoseconds::zero();
 
   std::cout << "After Insertion:\n";
   num_sketch_graphs = mc_gpu_alg.get_num_sketch_graphs();
   std::cout << "Number of sketch graphs: " << num_sketch_graphs << "\n";
+
+  mc_gpu_alg.display_time();
 
   /********************************************************************\
   |                                                                    |
@@ -212,13 +213,13 @@ int main(int argc, char **argv) {
       std::cout << "S" << graph_id << " (Adj. list):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
       SFs_edges = mc_gpu_alg.get_adjlist_spanning_forests();
-      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forests_start;
+      sampling_forests_adj_time += std::chrono::steady_clock::now() - sampling_forests_start;
     } 
     else { // Get Spanning forests from sketch subgraph
       std::cout << "S" << graph_id << " (Sketch):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
       auto sfs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id, k);
-      sampling_forests_time += std::chrono::steady_clock::now() - sampling_forests_start;
+      sampling_forests_sketch_time += std::chrono::steady_clock::now() - sampling_forests_start;
 
       std::cerr << "Query done" << std::endl;
       for (const auto &sf : sfs) {
@@ -264,9 +265,9 @@ int main(int argc, char **argv) {
   std::cout << "  Updates per second: " << stream.edges() / num_seconds << std::endl;
   std::cout << "  Flush Gutters(sec): " << flush_time.count() << std::endl;
   std::cout << "K-Connectivity: (Sketch Subgraphs)" << std::endl;
-  std::cout << "  Sampling Forests Time(sec): " << sampling_forests_time.count() << std::endl;
-  std::cout << "  Trimming Forests Reading Time(sec): " << trim_reading_time.count() << std::endl;
-  std::cout << "  Trimming Forests Flushing Time(sec): " << trim_flushing_time.count() << std::endl;
+  std::cout << "  Sampling Forests Time(sec): " << sampling_forests_sketch_time.count() + sampling_forests_adj_time.count() << std::endl;
+  std::cout << "    From Sketch Subgraphs(sec): " << sampling_forests_sketch_time.count() << std::endl;
+  std::cout << "    From Adj. list(sec): " << sampling_forests_adj_time.count() << std::endl;
   std::cout << "VieCut Program Time(sec): " << viecut_time.count() << std::endl;
   std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;

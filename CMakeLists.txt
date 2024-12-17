@@ -203,6 +203,10 @@ if (BUILD_EXE)
     test/cpu_sketch_throughput.cpp)
   target_link_libraries(cpu_sketch_throughput PRIVATE GraphZeppelin)
 
+  add_executable(cpu_gpu_transfer
+    test/cpu_gpu_transfer.cu)
+  target_link_libraries(cpu_gpu_transfer PRIVATE GraphZeppelin CUDALibrary)
+
   add_executable(min_cut
     tools/min_cut.cu)
   target_link_libraries(min_cut PRIVATE GraphZeppelin CUDALibrary)

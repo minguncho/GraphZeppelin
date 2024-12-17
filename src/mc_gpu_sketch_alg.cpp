@@ -74,41 +74,40 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
     return;
   }
 
-  std::vector<SubgraphTaggedUpdate> &store_edges = store_buffers[thr_id];
-  std::vector<SubgraphTaggedUpdate> &sketch_edges = sketch_buffers[thr_id];
+  SubgraphTaggedUpdate* store_edges = store_buffers[thr_id];
+  SubgraphTaggedUpdate* sketch_edges = sketch_buffers[thr_id];
 
+  int store_edge_count = 0;
+  int sketch_edge_count = 0;
   for (vec_t i = 0; i < dst_vertices.size(); i++) {
     // Determine the depth of current edge
     vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_vertices[i]));
-    size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, 0, num_subgraphs-1);
+    size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, default_skt_params.seed, num_subgraphs-1);
 
     if (subgraph >= first_es_subgraph) {
       // Adj. list
-      store_edges.push_back({subgraph, dst_vertices[i]});
+      store_edges[store_edge_count] = {subgraph, dst_vertices[i]};
+      store_edge_count++;
     }
-    sketch_edges.push_back({subgraph, dst_vertices[i]});
+    sketch_edges[sketch_edge_count] = {subgraph, dst_vertices[i]};
+    sketch_edge_count++;
   }
 
   // Perform adjacency list updates
   TaggedUpdateBatch more_upds =
-      edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges);
-  if (sketch_edges.size() > 0)
-    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges});
+      edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges, store_edge_count);
+  if (sketch_edge_count > 0)
+    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, std::vector<SubgraphTaggedUpdate>(sketch_edges, sketch_edges + sketch_edge_count)});
   if (more_upds.dsts_data.size() > 0)
     complete_update_batch(thr_id, more_upds);
-
-  store_edges.clear();
-  sketch_edges.clear();
 }
 
 void MCGPUSketchAlg::apply_flush_updates() {
-
   // first ensure that all pending contractions are moved out of the edge store.
   auto task = [&](int thr_id) {
     while (edge_store.contract_in_progress()) {
       TaggedUpdateBatch more_upds =
           edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
-
       if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
     }
   };

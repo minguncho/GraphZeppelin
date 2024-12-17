@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <mutex>
-#include <set>
+#include <unordered_map>
 #include <vector>
 #include <iostream>
 
@@ -19,7 +19,7 @@ class EdgeStore {
   std::atomic<edge_id_t> num_edges;
   std::atomic<node_id_t> needs_contraction;
 
-  std::vector<std::set<SubgraphTaggedUpdate>> adjlist;
+  std::vector<std::unordered_map<node_id_t, node_id_t>> adjlist;
 
   // This is a vector of booleans BUT we don't want to use vector<bool> because its not
   // multithread friendly
@@ -52,7 +52,7 @@ class EdgeStore {
 
   // this function is called when there are some sketch subgraphs.
   TaggedUpdateBatch insert_adj_edges(node_id_t src, node_id_t caller_first_es_subgraph,
-                                     const std::vector<SubgraphTaggedUpdate>& dst_data);
+                                     SubgraphTaggedUpdate* dst_data, int dst_data_size);
 
   // contract vertex data by removing all updates bound for lower subgraphs than the store 
   // is responsible for

@@ -63,7 +63,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
     return vertex_advance_subgraph(cur_first_es_subgraph);
   } else {
     check_if_too_big();
-    return {src, cur_first_es_subgraph - 1, cur_first_es_subgraph, &ret[0], ret.size()};
+    return {src, cur_first_es_subgraph - 1, cur_first_es_subgraph, ret};
   }
 }
 
@@ -105,7 +105,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
     return vertex_advance_subgraph(cur_first_es_subgraph);
   } else {
     check_if_too_big();
-    return {src, cur_first_es_subgraph - 1, cur_first_es_subgraph, &ret[0], ret.size()};
+    return {src, cur_first_es_subgraph - 1, cur_first_es_subgraph, ret};
   }
 }
 
@@ -184,7 +184,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
         ++true_min_subgraph;
         std::cerr << "EdgeStore: Contraction complete" << std::endl;
       }
-      return {0, cur_first_es_subgraph - 1, cur_first_es_subgraph, &(std::vector<SubgraphTaggedUpdate>())[0], 0};
+      return {0, cur_first_es_subgraph - 1, cur_first_es_subgraph, std::vector<SubgraphTaggedUpdate>()};
     }
 
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
@@ -195,8 +195,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
   }
 
   std::lock_guard<std::mutex> lk(adj_mutex[src]);
-  std::vector<SubgraphTaggedUpdate> vc = vertex_contract(src);
-  return {src, cur_first_es_subgraph - 1, cur_first_es_subgraph, &vc[0], vc.size()};
+  return {src, cur_first_es_subgraph - 1, cur_first_es_subgraph, vertex_contract(src)};
 }
 
 // checks if we should perform a contraction and begins the process if so

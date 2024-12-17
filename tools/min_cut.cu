@@ -10,7 +10,7 @@
 
 static bool cert_clean_up = false;
 static bool shutdown = false;
-static bool cudaUVM_enabled = false;
+static bool cudaUVM_enabled = true;
 constexpr double epsilon = 0.75;
 
 static double get_max_mem_used() {

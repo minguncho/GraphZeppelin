@@ -185,7 +185,7 @@ private:
   int num_reader_threads;
 
   // Maximum number of edge updates in one batch
-  int num_batch_per_buffer = 540;
+  int num_batch_per_buffer = 1080;
   
   // Number of subgraphs in sketch representation
   int max_sketch_graphs; // Max. number of subgraphs that can be in sketch graphs

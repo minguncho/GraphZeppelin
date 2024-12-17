@@ -70,7 +70,7 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   // We only have an adjacency list so just directly insert
   if (first_es_subgraph == 0) {
     TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices);
-    if (more_upds.dsts_data_size > 0) complete_update_batch(thr_id, more_upds);
+    if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
     return;
   }
 
@@ -97,8 +97,8 @@ void MCGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
   TaggedUpdateBatch more_upds =
       edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges, store_edge_count);
   if (sketch_edge_count > 0)
-    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, sketch_edges, sketch_edge_count});
-  if (more_upds.dsts_data_size > 0)
+    complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, std::vector<SubgraphTaggedUpdate>(sketch_edges, sketch_edges + sketch_edge_count)});
+  if (more_upds.dsts_data.size() > 0)
     complete_update_batch(thr_id, more_upds);
 }
 
@@ -108,7 +108,7 @@ void MCGPUSketchAlg::apply_flush_updates() {
     while (edge_store.contract_in_progress()) {
       TaggedUpdateBatch more_upds =
           edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
-      if (more_upds.dsts_data_size > 0) complete_update_batch(thr_id, more_upds);
+      if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
     }
   };
 

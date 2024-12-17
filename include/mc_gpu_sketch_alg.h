@@ -1,34 +1,58 @@
 #pragma once
 
 #include <cmath>
+#include <cstring>
 #include <map>
-#include "mc_sketch_alg.h"
+
 #include "cuda_kernel.cuh"
 #include "cuda_stream.h"
 #include "edge_store.h"
+#include "mc_sketch_alg.h"
 
 class MCGPUSketchAlg;
 class SketchSubgraph {
  private:
+  struct Gutter {
+    size_t elms = 0;
+    std::vector<node_id_t> data;
+  };
+
   std::atomic<size_t> num_updates;
   CudaStream<MCGPUSketchAlg>** cuda_streams = nullptr;
   SketchParams sketchParams;
 
   int num_streams;
 
- public:
+  node_id_t num_nodes;
+  size_t batch_size;
 
+  std::vector<Gutter> subgraph_gutters;
+
+  std::mutex *gutter_locks;
+
+  void apply_update_batch(int thr_id, node_id_t src, std::vector<node_id_t> &dst_vertices) {
+    if (cuda_streams == nullptr) 
+      throw std::runtime_error("ERROR: Cannot call apply_update_batch() on uninit sketch subgraph");
+    num_updates += dst_vertices.size();
+    cuda_streams[thr_id]->process_batch(src, &dst_vertices[0], dst_vertices.size());
+  }
+
+ public:
   ~SketchSubgraph() {
     if (cuda_streams != nullptr) {
       for (int i = 0; i < num_streams; i++) {
         delete cuda_streams[i];
       }
       delete[] cuda_streams;
+      delete[] gutter_locks;
     }
   }
 
-  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t num_nodes, int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-             SketchParams _sketchParams) {
+  void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
+                  int num_host_threads, int num_device_threads, int num_batch_per_buffer,
+                  size_t _batch_size, SketchParams _sketchParams) {
+    num_nodes = _num_nodes;
+    batch_size = _batch_size;
     num_updates = 0;
     num_streams = num_host_threads;
     cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
@@ -46,17 +70,47 @@ class SketchSubgraph {
           new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
                                          num_batch_per_buffer, sketchParams);
     }
+
+    subgraph_gutters.resize(num_nodes);
+    for (node_id_t i = 0; i < num_nodes; i++) {
+      subgraph_gutters[i].data.resize(batch_size);
+    }
+    gutter_locks = new std::mutex[num_nodes];
   }
 
+  // Insert an edge to the subgraph
+  void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 16> dsts,
+                    const size_t num_elms) {
+    auto &gutter = subgraph_gutters[src];
+    std::lock_guard<std::mutex> lk(gutter_locks[src]);
 
-  void apply_update_batch(int thr_id, node_id_t src, const std::vector<node_id_t> &dst_vertices) {
-    if (cuda_streams == nullptr) 
-      throw std::runtime_error("ERROR: Cannot call apply_update_batch() on uninit sketch subgraph");
-    num_updates += dst_vertices.size();
-    cuda_streams[thr_id]->process_batch(src, &dst_vertices[0], dst_vertices.size());
+    // pre flush updates
+    const size_t capacity = batch_size - gutter.elms;
+    std::memcpy(&gutter.data[gutter.elms], dsts.data(),
+                sizeof(node_id_t) * std::min(num_elms, capacity));
+    gutter.elms += std::min(num_elms, capacity);
+
+    if (num_elms >= capacity) {
+      apply_update_batch(thr_id, src, gutter.data);
+      size_t num_left = num_elms - capacity;
+      gutter.elms = num_left;
+
+      std::memcpy(&gutter.data[0], dsts.data() + capacity, sizeof(node_id_t) * num_left);
+    }
   }
 
   void flush() {
+    // flush subgraph gutters
+    for (node_id_t v = 0; v < num_nodes; v++) {
+      if (subgraph_gutters[v].elms > 0) {
+        subgraph_gutters[v].data.resize(subgraph_gutters[v].elms);
+        apply_update_batch(0, v, subgraph_gutters[v].data);
+        subgraph_gutters[v].elms = 0;
+        subgraph_gutters[v].data.resize(batch_size);
+      }
+    }
+
+    // flush cuda streams
     for (int thr_id = 0; thr_id < num_streams; thr_id++) {
       cuda_streams[thr_id]->flush_buffers();
     }
@@ -200,8 +254,8 @@ public:
 
     // Initialize Sketch Graphs
     for (int i = 0; i < cur_subgraphs; i++) {
-      subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads, num_batch_per_buffer,
-             default_skt_params);
+      subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads,
+                              num_batch_per_buffer, batch_size, default_skt_params);
       create_sketch_graph(i, subgraphs[i].get_skt_params());
     }
     

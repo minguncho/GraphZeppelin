@@ -78,8 +78,8 @@ class SketchSubgraph {
     gutter_locks = new std::mutex[num_nodes];
   }
 
-  // Insert an edge to the subgraph
-  void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 16> dsts,
+  // Insert edges to the subgraph
+  void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 32> dsts,
                     const size_t num_elms) {
     auto &gutter = subgraph_gutters[src];
     std::lock_guard<std::mutex> lk(gutter_locks[src]);
@@ -104,7 +104,7 @@ class SketchSubgraph {
     for (node_id_t v = 0; v < num_nodes; v++) {
       if (subgraph_gutters[v].elms > 0) {
         subgraph_gutters[v].data.resize(subgraph_gutters[v].elms);
-        apply_update_batch(0, v, subgraph_gutters[v].data);
+        apply_update_batch(get_omp_thread_num(), v, subgraph_gutters[v].data);
         subgraph_gutters[v].elms = 0;
         subgraph_gutters[v].data.resize(batch_size);
       }

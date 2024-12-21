@@ -10,8 +10,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   node_id_t first_es_subgraph = updates.first_es_subgraph;
 
   if (first_es_subgraph == 0) {
-    std::cerr << "Why are we here??" << std::endl;
-    throw std::runtime_error("gross");
+    throw std::runtime_error("ERROR: MCGPUSketchAlg::complete_update_batch() bad es_subgraph");
   }
 
   // do we need to allocate more sketches due to edge_store contraction
@@ -33,9 +32,10 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
 
-  std::vector<std::array<node_id_t, 16>> subgraph_buffers;
+  constexpr size_t local_buffer_size = 32;
+  std::vector<std::array<node_id_t, local_buffer_size>> subgraph_buffers;
   subgraph_buffers.resize(first_es_subgraph);
-  std::array<size_t, 16> buffer_sizes;
+  std::array<size_t, local_buffer_size> buffer_sizes;
   buffer_sizes.fill(0);
 
   // put data into local buffers and when full move into subgraph's gutters
@@ -45,7 +45,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
       subgraph_buffers[graph_id][buffer_sizes[graph_id]++] = dst_data.dst;
-      if (buffer_sizes[graph_id] >= 16) {
+      if (buffer_sizes[graph_id] >= local_buffer_size) {
         subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[graph_id],
                                          buffer_sizes[graph_id]);
         buffer_sizes[graph_id] = 0;
@@ -120,7 +120,8 @@ void MCGPUSketchAlg::apply_flush_updates() {
     threads[t].join();
   }
 
-  // flush all subgraph
+  // flush all subgraph buffers
+#pragma omp parallel for
   for (size_t graph_id = 0; graph_id < cur_subgraphs; graph_id++) {
     subgraphs[graph_id].flush();
   }

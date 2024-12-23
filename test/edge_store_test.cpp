@@ -72,7 +72,7 @@ TEST(EdgeStoreTest, contract) {
       }
       ASSERT_TRUE(edges_added.insert({src, dst}).second);
     }
-    auto more_upds = edge_store.insert_adj_edges(i, edge_store.get_first_store_subgraph(), dsts);
+    auto more_upds = edge_store.insert_adj_edges(i, edge_store.get_first_store_subgraph(), dsts.data(), dsts.size());
     node_id_t src = more_upds.src;
     for (auto dst_data : more_upds.dsts_data) {
       ++num_returned[edge_store.get_first_store_subgraph() - 1];

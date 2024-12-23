@@ -125,7 +125,7 @@ void MCGPUSketchAlg::apply_flush_updates() {
   // flush all subgraph buffers
 #pragma omp parallel for
   for (size_t graph_id = 0; graph_id < cur_subgraphs; graph_id++) {
-    subgraphs[graph_id].flush(get_omp_thread_num());
+    subgraphs[graph_id].flush(omp_get_thread_num());
   }
 
   // ensure streams have finished applying updates

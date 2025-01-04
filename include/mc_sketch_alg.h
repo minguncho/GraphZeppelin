@@ -149,6 +149,9 @@ class MCSketchAlg {
   // Boruvka algorithm for k connectivitiy
   void k_boruvka_emulation(int graph_id);
 
+  // Helper function to delete spanning forest edges
+  void filter_sf_edges(SpanningForest &sf, size_t graph_id);
+
   // constructor for use when reading from a serialized file
   MCSketchAlg(node_id_t num_vertices, size_t seed, std::ifstream &binary_stream,
               CCAlgConfiguration config);

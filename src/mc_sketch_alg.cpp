@@ -879,14 +879,10 @@ void MCSketchAlg::filter_sf_edges(SpanningForest &sf, size_t graph_id) {
     }
   }
 
-  // number of rounds per SF may be non-monotonic, so we track the maximum number of rounds
-  // among all of the spanning forest queries.
-  last_query_rounds = max_rounds;
-
   delete_time += std::chrono::steady_clock::now() - start;
 }
 
-std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t k) {
+std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t graph_id, size_t k) {
   std::vector<SpanningForest> SFs;
   std::chrono::steady_clock::time_point start;
   size_t max_rounds = 0;
@@ -897,17 +893,21 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t k
     query_time += std::chrono::steady_clock::now() - start;
     max_rounds = std::max(last_query_rounds, max_rounds);
 
-    filter_sf_edges(SFs[SFs.size() - 1]);
+    filter_sf_edges(SFs[SFs.size() - 1], graph_id);
   }
 
   // revert the state of the sketches to remove all deletions
   for (auto &sf : SFs) {
-    filter_sf_edges(sf);
+    filter_sf_edges(sf, graph_id);
   }
 
 #ifdef VERIFY_SAMPLES_F
   verifier->verify_spanning_forests(SFs);
 #endif
+
+  // number of rounds per SF may be non-monotonic, so we track the maximum number of rounds
+  // among all of the spanning forest queries.
+  last_query_rounds = max_rounds;
 
   return SFs;
 }

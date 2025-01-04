@@ -290,6 +290,10 @@ class MCSketchAlg {
   // time hooks for experiments
   std::chrono::steady_clock::time_point cc_alg_start;
   std::chrono::steady_clock::time_point cc_alg_end;
+  std::chrono::steady_clock::time_point sf_query_start;
+  std::chrono::steady_clock::time_point sf_query_end;
+  std::chrono::duration<double> query_time;
+  std::chrono::duration<double> delete_time;
   size_t last_query_rounds = 0;
 
   // getters

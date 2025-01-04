@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(GraphZeppelin LANGUAGES CXX CUDA)
 
+include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+
 include (FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)

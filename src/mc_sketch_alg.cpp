@@ -848,34 +848,34 @@ void MCSketchAlg::filter_sf_edges(SpanningForest &sf, size_t graph_id) {
 
     // check if we collide with previous thread. If so lock and apply those updates.
     if (start > 0 && edges[start].src == edges[start - 1].src) {
-      sketches[edges[start].src]->mutex.lock();
+      sketches[(graph_id * num_vertices) + edges[start].src]->mutex.lock();
       size_t orig_start = start;
       while (edges[start].src == edges[orig_start].src) {
         Edge edge = edges[start];
         // TODO: Need to address that this should only update a particular subgraph!
-        sketches[edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
+        sketches[(graph_id * num_vertices) + edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
         ++start;
       }
 
-      sketches[edges[orig_start].src]->mutex.unlock();
+      sketches[(graph_id * num_vertices) + edges[orig_start].src]->mutex.unlock();
     }
 
     // check if we collide with next thread. If so lock and apply those updates.
     if (end < edges.size() && edges[end - 1].src == edges[end].src) {
-      sketches[edges[end - 1].src]->mutex.lock();
+      sketches[(graph_id * num_vertices) + edges[end - 1].src]->mutex.lock();
       size_t orig_end = end;
       while (edges[end - 1].src == edges[orig_end - 1].src) {
         Edge edge = edges[end - 1];
-        sketches[edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
+        sketches[(graph_id * num_vertices) + edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
         --end;
       }
 
-      sketches[edges[orig_end].src]->mutex.unlock();
+      sketches[(graph_id * num_vertices) + edges[orig_end].src]->mutex.unlock();
     }
     
     for (size_t i = start; i < end; i++) {
       Edge edge = edges[i];
-      sketches[edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
+      sketches[(graph_id * num_vertices) + edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
     }
   }
 

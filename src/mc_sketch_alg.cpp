@@ -883,6 +883,7 @@ void MCSketchAlg::filter_sf_edges(SpanningForest &sf, size_t graph_id) {
 }
 
 std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t graph_id, size_t k) {
+  sf_query_start = std::chrono::steady_clock::now();
   std::vector<SpanningForest> SFs;
   std::chrono::steady_clock::time_point start;
   size_t max_rounds = 0;
@@ -908,6 +909,7 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t g
   // number of rounds per SF may be non-monotonic, so we track the maximum number of rounds
   // among all of the spanning forest queries.
   last_query_rounds = max_rounds;
+  sf_query_end = std::chrono::steady_clock::now();
 
   return SFs;
 }

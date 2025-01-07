@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   std::cout << std::endl;
 
   int k = ceil(log2(num_nodes) / (epsilon * epsilon));
-  double reduced_k = (k / log2(num_nodes)) * 1.3;
+  double reduced_k = (k / log2(num_nodes)) * 1.5;
 
   std::cout << "epsilon: " << epsilon << std::endl;
   std::cout << "k: " << k << std::endl;

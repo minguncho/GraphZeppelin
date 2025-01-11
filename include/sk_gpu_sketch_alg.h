@@ -26,7 +26,7 @@ private:
   int num_host_threads;
 
   // Maximum number of edge updates in one batch
-  int batch_size;
+  size_t batch_size;
 
   // Number of batches in a buffer to accept until GPU kernel launch
   int num_batch_per_buffer = 540;
@@ -68,26 +68,27 @@ public:
     batch_size = get_desired_updates_per_batch();
     std::cout << "Batch Size: " << batch_size << "\n";
 
-    int device_id = cudaGetDevice(&device_id);
-    int device_count = 0;
-    cudaGetDeviceCount(&device_count);
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, device_id);
-    std::cout << "CUDA Device Count: " << device_count << "\n";
-    std::cout << "CUDA Device ID: " << device_id << "\n";
-    std::cout << "CUDA Device Number of SMs: " << deviceProp.multiProcessorCount << "\n"; 
-
-    // Set maxBytes for GPU kernel's shared memory
-    maxBytes = (sketchParams.num_buckets * sizeof(vec_t_cu)) + (sketchParams.num_buckets * sizeof(vec_hash_t));
-    cudaKernel.updateSharedMemory(maxBytes);
-    std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
-
     gpuErrchk(cudaMallocHost(&h_edgeUpdates, 2 * num_updates * sizeof(node_id_t)));
     // Initialize buffer with 0
     memset(h_edgeUpdates, 0, 2 * num_updates * sizeof(node_id_t));
 
     // Allocate memory for buffer that stores edge updates
     if (using_gpu) {
+      int device_id = cudaGetDevice(&device_id);
+      int device_count = 0;
+      cudaGetDeviceCount(&device_count);
+      cudaDeviceProp deviceProp;
+      cudaGetDeviceProperties(&deviceProp, device_id);
+      std::cout << "CUDA Device Count: " << device_count << "\n";
+      std::cout << "CUDA Device ID: " << device_id << "\n";
+      std::cout << "CUDA Device Number of SMs: " << deviceProp.multiProcessorCount << "\n"; 
+
+      // Set maxBytes for GPU kernel's shared memory
+      maxBytes = (sketchParams.num_buckets * sizeof(vec_t_cu)) + (sketchParams.num_buckets * sizeof(vec_hash_t)); // Delta Sketch
+      maxBytes += (batch_size * sizeof(node_id_t)); // Vertex-Based Batch
+      cudaKernel.updateSharedMemory(maxBytes);
+      std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
+
       // Initialize CUDA Streams
       cudaStreams = new CudaStream<SKGPUSketchAlg>*[num_host_threads];
       for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
@@ -129,6 +130,7 @@ public:
   void launch_gpu_update();
   void flush_buffers();
   void launch_gpu_kernel();
+  void buffer_transfer();
   void display_time();
   uint64_t get_batch_count() { 
     uint64_t temp = batch_count;

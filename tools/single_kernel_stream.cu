@@ -66,9 +66,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<SKGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5) {
+  if (argc != 4) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads GPU_ID" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -100,9 +100,6 @@ int main(int argc, char **argv) {
   std::cout << "num_buckets: " << sketchParams.num_buckets << "\n";
   std::cout << "num_columns: " << sketchParams.num_columns << "\n";
   std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
-
-  gpuErrchk(cudaSetDevice(std::atoi(argv[4])));
-
 
   // Allocate memory for buckets
   sketchParams.cudaUVM_enabled = cudaUVM_enabled; 
@@ -164,7 +161,7 @@ int main(int argc, char **argv) {
   auto update_end = std::chrono::steady_clock::now();
 
   std::chrono::duration<double> pref_time = std::chrono::nanoseconds::zero();
-  if (cudaUVM_enabled) {
+  if (using_gpu && cudaUVM_enabled) {
     // Prefetch sketches back to CPU
     auto pref_start = std::chrono::steady_clock::now();
     gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));

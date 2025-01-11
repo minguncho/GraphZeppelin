@@ -6,7 +6,6 @@
 
 void SKGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
                                      const std::vector<node_id_t> &dst_vertices) {
-  //return;
   if (CCSketchAlg::get_update_locked()) throw UpdateLockedException();
   // Get offset
   size_t offset = edgeUpdate_offset.fetch_add(dst_vertices.size());
@@ -162,7 +161,7 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
 
   auto kernel_start = std::chrono::steady_clock::now();
   gpuErrchk(cudaEventRecord(start));
-  cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, batch_count, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
+  cudaKernel.single_sketchUpdate(num_device_threads, num_device_blocks, batch_count, batch_size, d_edgeUpdates, d_update_src, d_update_sizes, d_update_start_index, sketchParams);
   gpuErrchk(cudaEventRecord(stop));
   cudaDeviceSynchronize();
   auto kernel_end = std::chrono::steady_clock::now();
@@ -181,6 +180,46 @@ void SKGPUSketchAlg::launch_gpu_kernel() {
 
   // Prefecth buffers back to CPU
   gpuErrchk(cudaMemPrefetchAsync(sketchParams.cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket), cudaCpuDeviceId));
+}
+
+void SKGPUSketchAlg::buffer_transfer() {
+  // Allocate buffers
+  double total_bytes = 2 * num_updates * sizeof(node_id_t);
+
+  node_id_t *h_sketches, *d_sketches;
+  gpuErrchk(cudaMallocHost(&h_sketches, total_bytes));
+  gpuErrchk(cudaMalloc(&d_sketches, total_bytes));
+
+  float time;
+  cudaEvent_t start, stop;
+
+  gpuErrchk(cudaEventCreate(&start));
+  gpuErrchk(cudaEventCreate(&stop));
+
+  cudaStream_t stream0, stream1;
+
+  // Initialize CudaStream
+  cudaStreamCreateWithFlags(&stream0, cudaStreamNonBlocking);
+  cudaStreamCreateWithFlags(&stream1, cudaStreamNonBlocking);
+
+  // Data Transfer
+  gpuErrchk(cudaEventRecord(start));
+
+  gpuErrchk(cudaMemcpyAsync(d_edgeUpdates, h_edgeUpdates, total_bytes, cudaMemcpyHostToDevice, stream0));
+  gpuErrchk(cudaMemcpyAsync(h_sketches, d_sketches, total_bytes, cudaMemcpyDeviceToHost, stream1));
+
+  cudaStreamSynchronize(stream0);
+  cudaStreamSynchronize(stream1);
+
+  gpuErrchk(cudaEventRecord(stop));
+
+  gpuErrchk(cudaEventSynchronize(stop));
+  gpuErrchk(cudaEventElapsedTime(&time, start, stop));
+
+  std::cout << "Total Bytes Transferred between CPU-GPU (GB):      " << 2 * total_bytes / 1000000000 << std::endl;
+  std::cout << "Data Transfer Time (s):                            " << time * 0.001 << std::endl;
+  std::cout << "Data Transfer Time (# of Edges/s):                 " << num_updates / (time * 0.001) << std::endl;
+  std::cout << "Data Transfer Time (GB/s):                         " << (2 * total_bytes / 1000000000) / (time * 0.001) << std::endl;
 }
 
 void SKGPUSketchAlg::display_time() {

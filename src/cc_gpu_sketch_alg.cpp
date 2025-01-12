@@ -77,5 +77,4 @@ void CCGPUSketchAlg::display_time() {
     std::cout << "  Delta Sketch Applying Time: " << cudaStreams[longest_thr_id]->apply_delta_time.count() << "\n";
     std::cout << "  Small Batch Update Time: " << small_batch_time[longest_thr_id].count() << "\n";
   }
-  
 }

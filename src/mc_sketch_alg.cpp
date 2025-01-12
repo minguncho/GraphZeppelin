@@ -890,7 +890,7 @@ std::vector<SpanningForest> MCSketchAlg::calc_disjoint_spanning_forests(size_t g
 
   for (size_t i = 0; i < k; i++) {
     start = std::chrono::steady_clock::now();
-    SFs.push_back(calc_spanning_forest());
+    SFs.push_back(calc_spanning_forest(graph_id));
     query_time += std::chrono::steady_clock::now() - start;
     max_rounds = std::max(last_query_rounds, max_rounds);
 

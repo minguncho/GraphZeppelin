@@ -92,8 +92,8 @@ int main(int argc, char **argv) {
   std::cout << "num_updates = " << num_updates << std::endl;
   std::cout << std::endl;
 
-  int k = log2(num_nodes) / (epsilon * epsilon);
-  int reduced_k = (k / log2(num_nodes)) * 2; 
+  int k = ceil(log2(num_nodes) / (epsilon * epsilon));
+  double reduced_k = (k / log2(num_nodes)) * 1.5;
 
   std::cout << "epsilon: " << epsilon << std::endl;
   std::cout << "k: " << k << std::endl;

@@ -314,45 +314,41 @@ __global__ void single_sketchUpdate_UVM_kernel(int num_device_blocks, uint64_t n
   vec_t_cu* bucket_a = sketches;
   vec_hash_t* bucket_c = (vec_hash_t*)&bucket_a[num_buckets];
 
-  for (uint64_t batch_id = blockIdx.x; batch_id < num_batches; batch_id += num_device_blocks) {
-    // Each thread will initialize a bucket in shared memory
-    for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
-      bucket_a[i] = 0;
-      bucket_c[i] = 0;
+  // Each thread will initialize a bucket in shared memory
+  for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
+    bucket_a[i] = 0;
+    bucket_c[i] = 0;
+  }
+
+  __syncthreads();
+
+  // Update sketch - each thread works on 1 update for on 1 column
+  for (int id = threadIdx.x; id < update_sizes[blockIdx.x] * num_columns; id += blockDim.x) {
+
+    int column_id = id % num_columns;
+    int update_id = id / num_columns;
+
+    vec_t edge_id = device_concat_pairing_fn(update_srcs[blockIdx.x], d_edgeUpdates[update_start_indexes[blockIdx.x] + update_id]);
+
+    vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
+    
+    if ((column_id == 0)) {
+      // Update depth 0 bucket
+      bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edge_id, checksum);
     }
 
-    __syncthreads();
+    // Update higher depth buckets
+    col_hash_t depth = bucket_get_index_depth(edge_id, sketchSeed + (column_id * 5), bkt_per_col);
+    size_t bucket_id = column_id * bkt_per_col + depth;
+    if(depth < bkt_per_col)
+      bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edge_id, checksum);
+  }
 
-    // Update sketch - each thread works on 1 update for on 1 column
-    for (int id = threadIdx.x; id < update_sizes[batch_id] * num_columns; id += blockDim.x) {
+  __syncthreads();
 
-      int column_id = id % num_columns;
-      int update_id = id / num_columns;
-
-      vec_t edge_id = device_concat_pairing_fn(update_srcs[batch_id], d_edgeUpdates[update_start_indexes[batch_id] + update_id]);
-
-      vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
-      
-      if ((column_id == 0)) {
-        // Update depth 0 bucket
-        bucket_update(bucket_a[num_buckets - 1], bucket_c[num_buckets - 1], edge_id, checksum);
-      }
-
-      // Update higher depth buckets
-      col_hash_t depth = bucket_get_index_depth(edge_id, sketchSeed + (column_id * 5), bkt_per_col);
-      size_t bucket_id = column_id * bkt_per_col + depth;
-      if(depth < bkt_per_col)
-        bucket_update(bucket_a[bucket_id], bucket_c[bucket_id], edge_id, checksum);
-    }
-
-    __syncthreads();
-
-    for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
-      atomicXor((vec_t_cu*)&buckets[(update_srcs[batch_id] * num_buckets) + i].alpha, bucket_a[i]);
-      atomicXor((vec_t_cu*)&buckets[(update_srcs[batch_id] * num_buckets) + i].gamma, (vec_t_cu)bucket_c[i]);
-    }
-
-    __syncthreads();
+  for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
+    atomicXor((vec_t_cu*)&buckets[(update_srcs[blockIdx.x] * num_buckets) + i].alpha, bucket_a[i]);
+    atomicXor((vec_t_cu*)&buckets[(update_srcs[blockIdx.x] * num_buckets) + i].gamma, (vec_t_cu)bucket_c[i]);
   }
 
 }

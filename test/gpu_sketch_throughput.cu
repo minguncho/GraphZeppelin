@@ -24,7 +24,7 @@ __global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes,
   __syncthreads();
 
   size_t update_offset = num_updates * blockIdx.x;
-  node_id_t node_id = blockIdx.x;
+  node_id_t node_id = blockIdx.x / num_nodes;
   for (size_t id = threadIdx.x; id < num_updates * num_columns; id += blockDim.x) {
 
     size_t column_id = id % num_columns;
@@ -106,8 +106,8 @@ int main(int argc, char **argv) {
   std::cout << "\n";
 
   int num_device_threads = 1024;
-  int num_updates_per_blocks = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
-  int num_device_blocks = std::ceil(((double)num_updates * 2) / num_updates_per_blocks);
+  size_t num_updates_per_blocks = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
+  size_t num_device_blocks = std::ceil(((double)num_updates * 2) / num_updates_per_blocks);
 
   std::cout << "Batch Size: " << num_updates_per_blocks << "\n\n";
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
 
   for (size_t batch_id = 0; batch_id < num_device_blocks; batch_id++) {
     for (size_t update_id = 0; update_id < num_updates_per_blocks; update_id++) {
-      h_edgeUpdates[(batch_id * num_updates_per_blocks) + update_id] = batch_id;
+      h_edgeUpdates[(batch_id * num_updates_per_blocks) + update_id] = update_id;
     }
   }
 

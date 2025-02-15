@@ -49,6 +49,7 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
                                               size_t dst_data_size) {
   int edges_delta = 0;
   std::vector<SubgraphTaggedUpdate> ret;
+  if (dst_data_size == 0) return {src, cur_subgraph - 1, cur_subgraph, ret};
   node_id_t cur_first_es_subgraph;
   
 
@@ -59,6 +60,10 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
   {
     std::lock_guard<std::mutex> lk(adj_mutex[src]);
     cur_first_es_subgraph = cur_subgraph;
+
+    if (true_min_subgraph < cur_first_es_subgraph && !vertex_contracted[src]) {
+      ret = vertex_contract(src);
+    }
 
     auto &data_buffer = adjlist[src];
     size_t orig_size = data_buffer.size();
@@ -86,15 +91,11 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_fi
     }
 
     data_buffer.resize(out_ptr + (dst_data_size - update_ptr));
-    while (update_ptr <= dst_data_size) {
+    while (update_ptr < dst_data_size) {
       data_buffer[out_ptr++] = dst_data[update_ptr++];
     }
 
     num_edges += out_ptr - orig_size;
-
-    if (true_min_subgraph < cur_first_es_subgraph && !vertex_contracted[src]) {
-      ret = vertex_contract(src);
-    }
   }
 
   if (ret.size() == 0 && true_min_subgraph < cur_first_es_subgraph) {

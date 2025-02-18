@@ -41,6 +41,9 @@ class EdgeStore {
 
 #ifdef VERIFY_SAMPLES_F
   void verify_contract_complete();
+  std::atomic<size_t> num_inserted;
+  std::atomic<size_t> num_duplicate;
+  std::atomic<size_t> num_returned;
 #endif
  public:
   // Constructor

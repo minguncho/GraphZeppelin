@@ -43,7 +43,7 @@ TEST(EdgeStoreTest, no_contract) {
 
 TEST(EdgeStoreTest, contract) {
   size_t nodes = 1024;
-  size_t skt_bytes = 1 << 20; // small enough to likely contract twice
+  size_t skt_bytes = 1 << 19; // small enough to likely contract thrice
   size_t num_subgraphs = 20;
   size_t seed = get_seed();
   EdgeStore edge_store(seed, nodes, skt_bytes, num_subgraphs);
@@ -110,4 +110,72 @@ TEST(EdgeStoreTest, contract) {
     node_id_t dst = std::max(edge.src, edge.dst);
     ASSERT_NE(edges_added.find({src, dst}), edges_added.end());
   }
+}
+
+
+TEST(EdgeStoreTest, contract_parallel) {
+  size_t nodes = 1024;
+  size_t skt_bytes = 1 << 19; // small enough to likely contract twice
+  size_t num_subgraphs = 20;
+  size_t seed = get_seed();
+  EdgeStore edge_store(seed, nodes, skt_bytes, num_subgraphs);
+
+  std::atomic<size_t> num_returned[6] = {0, 0, 0, 0, 0, 0};
+  std::atomic<size_t> num_in_subgraphs[6] = {0, 0, 0, 0, 0, 0};
+
+#pragma omp parallel for
+  for (size_t i = 0; i < nodes; i++) {
+    std::vector<SubgraphTaggedUpdate> dsts;
+    size_t edge_store_subgraph = edge_store.get_first_store_subgraph();
+    for (size_t j = i + 1; j < nodes; j++) {
+      node_id_t src = std::min(i, j);
+      node_id_t dst = std::max(i, j);
+      auto idx = concat_pairing_fn(src, dst);
+      size_t depth = Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs);
+      
+      for (size_t i = 0; i <= std::min(size_t(5), depth); i++) {
+        ++num_in_subgraphs[i];
+      }
+      for (size_t k = 0; k < std::min(depth + 1, edge_store_subgraph); k++) {
+        ++num_returned[k];
+      }
+      if (depth >= edge_store_subgraph) {
+        dsts.push_back({depth, j});
+      }
+    }
+    auto more_upds = edge_store.insert_adj_edges(i, edge_store_subgraph, dsts.data(), dsts.size());
+    node_id_t src = more_upds.src;
+    for (auto dst_data : more_upds.dsts_data) {
+      ++num_returned[more_upds.min_subgraph];
+      node_id_t s = std::min(src, dst_data.dst);
+      node_id_t d = std::max(src, dst_data.dst);
+    }
+  }
+
+#pragma omp parallel
+  {
+    while (edge_store.contract_in_progress()) {
+      auto more_upds = edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
+      node_id_t src = more_upds.src;
+      for (auto dst_data : more_upds.dsts_data) {
+        ++num_returned[edge_store.get_first_store_subgraph() - 1];
+        node_id_t s = std::min(src, dst_data.dst);
+        node_id_t d = std::max(src, dst_data.dst);
+      }
+    }
+  }
+
+  for (size_t i = 0; i < 6; i++) {
+    std::cerr << num_returned[i] << " vs " << num_in_subgraphs[i] << std::endl;
+  }
+
+  std::vector<Edge> edges = edge_store.get_edges();
+  std::cerr << "edge store size = " << edges.size() << std::endl;
+
+  for (size_t i = 0; i < edge_store.get_first_store_subgraph(); i++) {
+    ASSERT_EQ(num_returned[i], num_in_subgraphs[i]);
+  }
+
+  
+  ASSERT_EQ(edges.size(), num_in_subgraphs[edge_store.get_first_store_subgraph()]);
 }

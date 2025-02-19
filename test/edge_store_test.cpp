@@ -41,6 +41,41 @@ TEST(EdgeStoreTest, no_contract) {
   }
 }
 
+TEST(EdgeStoreTest, no_contract_dupl) {
+  size_t nodes = 1024;
+  size_t skt_bytes = 1 << 30;  // artificially large
+  EdgeStore edge_store(get_seed(), nodes, skt_bytes, 20);
+
+  std::set<Edge> edges_added;
+
+  for (size_t i = 0; i < nodes; i++) {
+    std::vector<node_id_t> dsts;
+    for (size_t j = 0; j < i; j++) {
+      dsts.push_back(j);
+      ASSERT_TRUE(edges_added.insert({i, j}).second);
+    }
+    auto more_upds = edge_store.insert_adj_edges(i, dsts);
+    ASSERT_EQ(more_upds.dsts_data.size(), 0);
+  }
+
+  // remove num_nodes edges from graph
+  for (size_t i = 0; i < nodes; i++) {
+    auto it = edges_added.begin();
+    edge_store.insert_adj_edges(it->src, std::vector<node_id_t>{it->dst});
+    edges_added.erase(it);
+  }
+
+  ASSERT_EQ(edge_store.get_num_edges(), edges_added.size());
+  ASSERT_EQ(edge_store.get_first_store_subgraph(), 0);
+
+  std::vector<Edge> edges = edge_store.get_edges();
+  ASSERT_EQ(edges.size(), edges_added.size());
+
+  for (auto edge : edges) {
+    ASSERT_NE(edges_added.find(edge), edges_added.end());
+  }
+}
+
 TEST(EdgeStoreTest, contract) {
   size_t nodes = 1024;
   size_t skt_bytes = 1 << 19; // small enough to likely contract thrice
@@ -112,7 +147,6 @@ TEST(EdgeStoreTest, contract) {
   }
 }
 
-
 TEST(EdgeStoreTest, contract_parallel) {
   size_t nodes = 1024;
   size_t skt_bytes = 1 << 19; // small enough to likely contract twice
@@ -179,3 +213,5 @@ TEST(EdgeStoreTest, contract_parallel) {
   
   ASSERT_EQ(edges.size(), num_in_subgraphs[edge_store.get_first_store_subgraph()]);
 }
+
+

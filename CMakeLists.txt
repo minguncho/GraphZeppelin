@@ -222,6 +222,11 @@ if (BUILD_EXE)
   )
   target_link_libraries(generate_stream PRIVATE GraphZeppelin)
 
+  add_executable(csv_converter
+    tools/converter/csv_converter.cpp
+  )
+  target_link_libraries(csv_converter PRIVATE GraphZeppelin)
+
   add_executable(metis_converter
     tools/converter/metis_converter.cpp
   )

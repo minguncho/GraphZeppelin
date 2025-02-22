@@ -4,6 +4,62 @@
 #include <thread>
 #include <vector>
 
+void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
+                                int num_host_threads, int num_device_threads,
+                                int num_batch_per_buffer, size_t _batch_size,
+                                SketchParams _sketchParams) {
+  auto start = std::chrono::steady_clock::now();
+
+  num_nodes = _num_nodes;
+  batch_size = _batch_size;
+  num_updates = 0;
+  num_streams = num_host_threads;
+  cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
+
+  sketchParams = _sketchParams;
+
+  if (sketchParams.cudaUVM_enabled) {
+    Bucket* cudaUVM_buckets;
+    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+    sketchParams.cudaUVM_buckets = cudaUVM_buckets;
+  }
+
+  for (int i = 0; i < num_streams; i++) {
+    cuda_streams[i] =
+        new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
+                                       num_batch_per_buffer, sketchParams);
+  }
+
+  subgraph_gutters.resize(num_nodes);
+  for (node_id_t i = 0; i < num_nodes; i++) {
+    subgraph_gutters[i].data.resize(batch_size);
+  }
+  gutter_locks = new std::mutex[num_nodes];
+
+  std::chrono::duration<double> init_time = std::chrono::steady_clock::now() - start;
+  std::cout << "SketchSubgraph::initilaize() took " << init_time.count() << std::endl;
+}
+
+void SketchSubgraph::batch_insert(int thr_id, const node_id_t src,
+                                  const std::array<node_id_t, 16> dsts, const size_t num_elms) {
+  auto &gutter = subgraph_gutters[src];
+  std::lock_guard<std::mutex> lk(gutter_locks[src]);
+
+  // pre flush updates
+  const size_t capacity = batch_size - gutter.elms;
+  std::memcpy(&gutter.data[gutter.elms], dsts.data(),
+              sizeof(node_id_t) * std::min(num_elms, capacity));
+  gutter.elms += std::min(num_elms, capacity);
+
+  if (num_elms >= capacity) {
+    apply_update_batch(thr_id, src, gutter.data);
+    size_t num_left = num_elms - capacity;
+    gutter.elms = num_left;
+
+    std::memcpy(&gutter.data[0], dsts.data() + capacity, sizeof(node_id_t) * num_left);
+  }
+}
+
 // call this function after we have found the depth of each update
 void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates) {
   node_id_t min_subgraph = updates.min_subgraph;

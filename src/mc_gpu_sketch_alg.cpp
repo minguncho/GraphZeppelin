@@ -30,9 +30,11 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
                                        num_batch_per_buffer, sketchParams);
   }
 
-  subgraph_gutters.resize(num_nodes);
+  gutter_data = new node_id_t[batch_size * num_nodes];
+  subgraph_gutters = new node_id_t*[num_nodes];
+  gutter_elms = new size_t[num_nodes]; // to prevent false sharing we probably want to add spacing
   for (node_id_t i = 0; i < num_nodes; i++) {
-    subgraph_gutters[i].data.resize(batch_size);
+    subgraph_gutters[i] = &gutter_data[i * batch_size];
   }
   gutter_locks = new std::mutex[num_nodes];
 
@@ -42,19 +44,19 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
 
 void SketchSubgraph::batch_insert(int thr_id, const node_id_t src,
                                   const std::array<node_id_t, 16> dsts, const size_t num_elms) {
-  auto &gutter = subgraph_gutters[src];
+  node_id_t *gutter = subgraph_gutters[src];
   std::lock_guard<std::mutex> lk(gutter_locks[src]);
 
   // pre flush updates
-  const size_t capacity = batch_size - gutter.elms;
-  std::memcpy(&gutter.data[gutter.elms], dsts.data(),
+  const size_t capacity = batch_size - gutter_elms[src];
+  std::memcpy(&gutter[gutter.elms], dsts.data(),
               sizeof(node_id_t) * std::min(num_elms, capacity));
-  gutter.elms += std::min(num_elms, capacity);
+  gutter_elms[src] += std::min(num_elms, capacity);
 
   if (num_elms >= capacity) {
-    apply_update_batch(thr_id, src, gutter.data);
+    apply_update_batch(thr_id, src, gutter);
     size_t num_left = num_elms - capacity;
-    gutter.elms = num_left;
+    gutter_elms[src] = num_left;
 
     std::memcpy(&gutter.data[0], dsts.data() + capacity, sizeof(node_id_t) * num_left);
   }

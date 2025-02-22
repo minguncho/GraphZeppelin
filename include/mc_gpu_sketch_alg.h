@@ -12,11 +12,6 @@
 class MCGPUSketchAlg;
 class SketchSubgraph {
  private:
-  struct Gutter {
-    size_t elms = 0;
-    std::vector<node_id_t> data;
-  };
-
   std::atomic<size_t> num_updates;
   CudaStream<MCGPUSketchAlg>** cuda_streams = nullptr;
   SketchParams sketchParams;
@@ -26,7 +21,9 @@ class SketchSubgraph {
   node_id_t num_nodes;
   size_t batch_size;
 
-  std::vector<Gutter> subgraph_gutters;
+  node_id_t *gutter_data; // actual data
+  node_id_t **subgraph_gutters; // pointers to the data
+  size_t *gutter_elms; // number of elements in each gutter
 
   std::mutex *gutter_locks;
 

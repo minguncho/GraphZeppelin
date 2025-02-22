@@ -18,17 +18,32 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
 
   sketchParams = _sketchParams;
 
+
+  auto cuda_malloc_task = [&]() {
+    if (sketchParams.cudaUVM_enabled) {
+      Bucket* cudaUVM_buckets;
+      gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+      sketchParams.cudaUVM_buckets = cudaUVM_buckets;
+    }
+
+    for (int i = 0; i < num_streams; i++) {
+      cuda_streams[i] =
+          new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
+                                         num_batch_per_buffer, sketchParams);
+    }
+  };
+  std::thread cuda_thr(cuda_malloc_task);
+
+
+
+
   if (sketchParams.cudaUVM_enabled) {
     Bucket* cudaUVM_buckets;
     gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
     sketchParams.cudaUVM_buckets = cudaUVM_buckets;
   }
 
-  for (int i = 0; i < num_streams; i++) {
-    cuda_streams[i] =
-        new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
-                                       num_batch_per_buffer, sketchParams);
-  }
+  
 
   subgraph_gutters.resize(num_nodes);
   for (node_id_t i = 0; i < num_nodes; i++) {

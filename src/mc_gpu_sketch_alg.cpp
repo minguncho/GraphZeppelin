@@ -50,7 +50,7 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
   }
   threads[num_host_threads - 1] = std::thread(gutter_init_task, cur, num_nodes);
 
-  for (auto thr : threads) {
+  for (auto& thr : threads) {
     thr.join();
   }
   cuda_thr.join();

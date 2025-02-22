@@ -22,7 +22,8 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
   auto cuda_malloc_task = [&]() {
     if (sketchParams.cudaUVM_enabled) {
       Bucket* cudaUVM_buckets;
-      gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+      gpuErrchk(cudaMallocManaged(&cudaUVM_buckets,
+                                  num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
       sketchParams.cudaUVM_buckets = cudaUVM_buckets;
     }
 
@@ -34,7 +35,7 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
   };
   std::thread cuda_thr(cuda_malloc_task);
 
-
+  subgraph_gutters.resize(num_nodes);
   auto gutter_init_task = [&](node_id_t start, node_id_t end) {
     for (node_id_t i = start; i < end; i++) {
       subgraph_gutters[i].data.resize(batch_size);
@@ -50,16 +51,12 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
   }
   threads[num_host_threads - 1] = std::thread(gutter_init_task, cur, num_nodes);
 
+  gutter_locks = new std::mutex[num_nodes];
+
   for (auto& thr : threads) {
     thr.join();
   }
   cuda_thr.join();
-
-  subgraph_gutters.resize(num_nodes);
-  for (node_id_t i = 0; i < num_nodes; i++) {
-    subgraph_gutters[i].data.resize(batch_size);
-  }
-  gutter_locks = new std::mutex[num_nodes];
 }
 
 void SketchSubgraph::batch_insert(int thr_id, const node_id_t src,

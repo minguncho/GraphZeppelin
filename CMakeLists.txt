@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(GraphZeppelin LANGUAGES CXX CUDA)
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+message("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 include (FetchContent)
 
@@ -201,9 +202,17 @@ if (BUILD_EXE)
     test/gpu_sketch_throughput.cu)
   target_link_libraries(gpu_sketch_throughput PRIVATE GraphZeppelin CUDALibrary)
 
+  add_executable(gpu_sketch_throughput_density
+  test/gpu_sketch_throughput_density.cu)
+  target_link_libraries(gpu_sketch_throughput_density PRIVATE GraphZeppelin CUDALibrary)
+
   add_executable(cpu_sketch_throughput
     test/cpu_sketch_throughput.cpp)
   target_link_libraries(cpu_sketch_throughput PRIVATE GraphZeppelin)
+
+  add_executable(cpu_sketch_throughput_density
+    test/cpu_sketch_throughput_density.cpp)
+  target_link_libraries(cpu_sketch_throughput_density PRIVATE GraphZeppelin)
 
   add_executable(cpu_gpu_transfer
     test/cpu_gpu_transfer.cu)

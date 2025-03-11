@@ -6,7 +6,7 @@
 ## Experiment Description
 
 ### Experiment List
-1. k-connectivity space savings
+1. k-connectivity space savings. Justification histogram.
 2. k-connectivity querying algorithm (should we really do this one?)
 3. hybrid sketch on minimum cut (space, ingestion rate, query latency)
   - space: w/ relatively small dataset compare and contrast methods while measuring RAM utilization every 5 seconds

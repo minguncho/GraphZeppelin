@@ -157,14 +157,11 @@ int main(int argc, char **argv) {
   }
 
   // Total number of estimated edges of minimum number of adj. list graphs
-  size_t num_est_edges_adj_graphs = (2 * num_edges_complete) / (1 << (max_sketch_graphs));
-  double total_adjlist_bytes = adjlist_edge_bytes * num_est_edges_adj_graphs;
   double total_sketch_bytes = sketch_bytes * max_sketch_graphs;
 
   std::cout << "Number of sketch graphs: " << num_sketch_graphs << "\n";
   std::cout << "  If complete graph with current num_vertices..." << "\n";
   std::cout << "    Maximum number of sketch graphs: " << max_sketch_graphs << "\n";
-  std::cout << "    Total minimum memory required for minimum number of adj. list graphs: " << total_adjlist_bytes / 1000000000 << "GB\n";
   std::cout << "    Total minimum memory required for maximum number of sketch graphs: " << total_sketch_bytes / 1000000000 << "GB\n";
   std::cout << "    Total minimum memory required for current num_vertices: " << (total_adjlist_bytes + total_sketch_bytes) / 1000000000 << "GB\n";
 

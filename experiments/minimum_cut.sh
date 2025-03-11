@@ -19,7 +19,7 @@ cd build
 out_file=runtime_results.csv
 
 # Write header to outfile csv
-echo "stream_file, ingestion_rate, memory_usage, query_latency" > $out_file
+echo "stream_file, ingestion_rate (1e6), memory_usage (MiB), query_latency (sec)" > $out_file
 
 # Process input files
 for input in $@

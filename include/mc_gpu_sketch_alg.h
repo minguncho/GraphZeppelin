@@ -79,7 +79,7 @@ class SketchSubgraph {
   }
 
   // Insert an edge to the subgraph
-  void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 16> dsts,
+  void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 32> dsts,
                     const size_t num_elms) {
     auto &gutter = subgraph_gutters[src];
     std::lock_guard<std::mutex> lk(gutter_locks[src]);

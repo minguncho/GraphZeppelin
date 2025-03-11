@@ -16,19 +16,21 @@ shift 3
 
 cd build
 
-out_file="runtime_results.csv"
+out_file=runtime_results.csv
 
 # Write header to outfile csv
-"stream_file, ingestion_rate, memory_usage, query_latency" > $out_file
+echo "stream_file, ingestion_rate, memory_usage, query_latency" > $out_file
 
 # Process input files
 for input in $@
 do
+  echo "============================================================"
+  echo "============================================================"
+
   stream_name=`basename $input`
-  echo -n "$(stream_name), " >> $out_file
+  echo -n "$stream_name, " >> $out_file
   ./min_cut $input $workers $readers yes
 done
 
-mv $out_file $(result_dir)/mc_no_edge_store.csv
-
 cd -
+mv build/$out_file $result_dir/mc_no_edge_store.csv

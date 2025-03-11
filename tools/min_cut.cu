@@ -151,6 +151,11 @@ int main(int argc, char **argv) {
     }
   }
 
+  if (!use_edge_store) {
+    // without the edge store we need a loooooot of sketches
+    max_sketch_graphs = 2 * log2(num_vertices);
+  }
+
   // Total number of estimated edges of minimum number of adj. list graphs
   size_t num_est_edges_adj_graphs = (2 * num_edges_complete) / (1 << (max_sketch_graphs));
   double total_adjlist_bytes = adjlist_edge_bytes * num_est_edges_adj_graphs;

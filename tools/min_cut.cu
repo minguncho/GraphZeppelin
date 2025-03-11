@@ -163,7 +163,6 @@ int main(int argc, char **argv) {
   std::cout << "  If complete graph with current num_vertices..." << "\n";
   std::cout << "    Maximum number of sketch graphs: " << max_sketch_graphs << "\n";
   std::cout << "    Total minimum memory required for maximum number of sketch graphs: " << total_sketch_bytes / 1000000000 << "GB\n";
-  std::cout << "    Total minimum memory required for current num_vertices: " << (total_adjlist_bytes + total_sketch_bytes) / 1000000000 << "GB\n";
 
   // Reconfigure sketches_factor based on reduced_k
   mc_config.sketches_factor(reduced_k);

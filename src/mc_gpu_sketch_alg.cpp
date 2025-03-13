@@ -8,6 +8,8 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
                                 int num_host_threads, int num_device_threads,
                                 int num_batch_per_buffer, size_t _batch_size,
                                 SketchParams _sketchParams) {
+  auto start = std::chrono::steady_clock::now();
+
   num_nodes = _num_nodes;
   batch_size = _batch_size;
   num_updates = 0;
@@ -30,7 +32,6 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
           new CudaStream<MCGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
                                          num_batch_per_buffer, sketchParams);
     }
-    sketching_alg->create_sketch_graph(graph_id, sketchParams);
   };
   std::thread cuda_thr(cuda_malloc_task);
 
@@ -41,15 +42,14 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
     }
   };
 
-  size_t num_threads = std::max(int(std::thread::hardware_concurrency()) / 2 - 1, 1);
-  std::vector<std::thread> threads(num_threads);
+  std::vector<std::thread> threads(num_host_threads);
   node_id_t cur = 0;
-  node_id_t amt = num_nodes / num_threads;
+  node_id_t amt = num_nodes / num_host_threads;
   for (int i = 0; i < num_host_threads - 1; i++) {
     threads[i] = std::thread(gutter_init_task, cur, cur + amt);
     cur += amt;
   }
-  threads[num_threads - 1] = std::thread(gutter_init_task, cur, num_nodes);
+  threads[num_host_threads - 1] = std::thread(gutter_init_task, cur, num_nodes);
 
   gutter_locks = new std::mutex[num_nodes];
 
@@ -98,6 +98,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
       subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads,
                                           num_device_threads, num_batch_per_buffer, batch_size,
                                           default_skt_params);
+      create_sketch_graph(cur_subgraphs, subgraphs[cur_subgraphs].get_skt_params());
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
 

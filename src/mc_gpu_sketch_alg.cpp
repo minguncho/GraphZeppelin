@@ -45,7 +45,7 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
   std::vector<std::thread> threads(num_threads);
   node_id_t cur = 0;
   node_id_t amt = num_nodes / num_threads;
-  for (int i = 0; i < num_threads - 1; i++) {
+  for (int i = 0; i < num_host_threads - 1; i++) {
     threads[i] = std::thread(gutter_init_task, cur, cur + amt);
     cur += amt;
   }

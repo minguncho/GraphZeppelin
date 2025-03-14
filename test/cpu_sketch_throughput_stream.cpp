@@ -20,20 +20,14 @@ static size_t get_seed() {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 6) {
+  if (argc != 3) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: num_nodes start_density max_density density_inc num_threads" << std::endl;
+    std::cout << "Arguments: num_nodes num_threads" << std::endl;
     exit(EXIT_FAILURE);
   }
 
   node_id_t num_nodes = std::atoi(argv[1]);
-  double start_density = std::stod(argv[2]);
-  double max_density = std::stod(argv[3]);
-  double density_inc = std::stod(argv[4]);
-  size_t num_complete_edges = (((size_t)num_nodes * ((size_t)num_nodes - 1)) / 2);
-  int num_threads = std::atoi(argv[5]);
-
-  std::cout << "Max Density: " << max_density * 100 << "%\n";
+  int num_threads = std::atoi(argv[2]);
 
   size_t sketchSeed = get_seed();
 
@@ -45,16 +39,13 @@ int main(int argc, char **argv) {
 
   std::cout << "-----Sketch Information-----\n";
   std::cout << "num_nodes: " << num_nodes << "\n";
-  std::cout << "num_complete_edges: " << num_complete_edges << "\n";
   std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n";
   std::cout << "num_columns: " << sketchParams.num_columns << "\n";
   std::cout << "num_buckets: " << sketchParams.num_buckets << "\n";
   std::cout << "\n";
 
   size_t num_updates_per_batch = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
-  size_t num_max_batches = std::ceil(((double)num_complete_edges * 2) / num_updates_per_batch);
 
-  std::cout << "Max Number of Batches: " << num_max_batches << "\n";
   std::cout << "Batch Size: " << num_updates_per_batch << "\n";
 
   Sketch **delta_sketches = new Sketch *[num_threads];
@@ -62,27 +53,30 @@ int main(int argc, char **argv) {
     delta_sketches[thr_id] = new Sketch(Sketch::calc_vector_length(num_nodes), sketchSeed, Sketch::calc_cc_samples(num_nodes, 1));
   }
 
-  std::vector<double> densities = {0.0000001, 0.0000002, 0.0000003, 0.0000004, 0.0000005,
-    0.0000006, 0.0000007, 0.0000008, 0.0000009, 0.000001, 
-    0.000002, 0.000003, 0.000004, 0.000005,
-    0.000006, 0.000007, 0.000008, 0.000009, 0.00001, 
-    0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 
-    0.00007, 0.00008, 0.00009, 0.0001, 0.0002, 0.0003, 
-    0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009,
-    0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 
-    0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 
-    0.07, 0.08, 0.09, 0.1, 0.15, 0.2};
+  /*std::vector<double> stream_updates = {
+    10000, 20000, 30000, 40000, 50000,
+    60000, 70000, 80000, 90000, 100000,
+    200000, 300000, 400000, 500000,
+    600000, 700000, 800000, 900000, 1000000,
+    2000000, 3000000, 4000000, 5000000,
+    6000000, 7000000, 8000000, 9000000, 10000000,
+    20000000, 30000000, 40000000, 50000000,
+    60000000, 70000000, 80000000, 90000000, 100000000,
+    200000000, 300000000, 400000000, 500000000,
+    600000000, 700000000, 800000000, 900000000, 1000000000,
+    2000000000, 3000000000, 4000000000, 5000000000};*/
 
-  for (auto& density : densities) {  
-  //for (double density = start_density; density < (max_density + 0.000001); density += density_inc) {
-    int num_batches = density * num_max_batches;
+    std::vector<double> stream_updates = {100000000};
 
-    std::cout << "Density: " << density * 100 << "%\n";
-    std::cout << "  Number of batches: " << num_batches << "\n";
+for (auto& stream_update : stream_updates) { 
+    int num_batches = (2 * stream_update) / num_updates_per_batch;
+    
+    std::cout << "Number of stream updates: " << stream_update << "\n";
+    std::cout << "  Number of device blocks: " << num_batches << "\n";
     std::cout << "  Number of updates: " << num_updates_per_batch * num_batches << "\n";
 
     if (num_batches == 0) {
-      std::cout << "  Current Density too low, skipping\n";
+      std::cout << "  Current stream length too low, skipping\n";
       continue;
     }
 

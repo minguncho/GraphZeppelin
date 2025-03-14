@@ -203,8 +203,12 @@ if (BUILD_EXE)
   target_link_libraries(gpu_sketch_throughput PRIVATE GraphZeppelin CUDALibrary)
 
   add_executable(gpu_sketch_throughput_density
-  test/gpu_sketch_throughput_density.cu)
+    test/gpu_sketch_throughput_density.cu)
   target_link_libraries(gpu_sketch_throughput_density PRIVATE GraphZeppelin CUDALibrary)
+  
+  add_executable(gpu_sketch_throughput_stream
+    test/gpu_sketch_throughput_stream.cu)
+  target_link_libraries(gpu_sketch_throughput_stream PRIVATE GraphZeppelin CUDALibrary)
 
   add_executable(cpu_sketch_throughput
     test/cpu_sketch_throughput.cpp)
@@ -213,6 +217,10 @@ if (BUILD_EXE)
   add_executable(cpu_sketch_throughput_density
     test/cpu_sketch_throughput_density.cpp)
   target_link_libraries(cpu_sketch_throughput_density PRIVATE GraphZeppelin)
+
+  add_executable(cpu_sketch_throughput_stream
+    test/cpu_sketch_throughput_stream.cpp)
+  target_link_libraries(cpu_sketch_throughput_stream PRIVATE GraphZeppelin CUDALibrary)
 
   add_executable(cpu_gpu_transfer
     test/cpu_gpu_transfer.cu)

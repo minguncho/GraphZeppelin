@@ -10,7 +10,7 @@ static size_t get_seed() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 }
 
-__global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes, size_t num_updates, node_id_t *edgeUpdates, size_t num_buckets, Bucket* buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
+__global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes, size_t num_updates_per_block, node_id_t *edgeUpdates, size_t num_buckets, Bucket* buckets, size_t num_columns, size_t bkt_per_col, size_t sketchSeed) {
 
   extern __shared__ vec_t_cu sketches[];
   vec_t_cu* bucket_a = sketches;
@@ -23,14 +23,14 @@ __global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes,
 
   __syncthreads();
 
-  node_id_t node_id = blockIdx.x / num_nodes;
-  for (size_t id = threadIdx.x; id < num_updates * num_columns; id += blockDim.x) {
+  node_id_t node_id = blockIdx.x % num_nodes;
+  for (size_t id = threadIdx.x; id < num_updates_per_block * num_columns; id += blockDim.x) {
 
     size_t column_id = id % num_columns;
     size_t update_id = id / num_columns;
 
     // Get random edge id based on current update_id
-    vec_t edge_id = device_concat_pairing_fn(node_id, edgeUpdates[update_id]);
+    vec_t edge_id = device_concat_pairing_fn(node_id, edgeUpdates[(blockIdx.x * num_updates_per_block) + update_id]);
 
     vec_hash_t checksum = bucket_get_index_hash(edge_id, sketchSeed);
     
@@ -49,8 +49,8 @@ __global__ void gpuSketchTest_kernel(int num_device_blocks, node_id_t num_nodes,
   __syncthreads();
 
   for (size_t i = threadIdx.x; i < num_buckets; i += blockDim.x) {
-    buckets[(node_id * num_buckets) + i].alpha = bucket_a[i];
-    buckets[(node_id * num_buckets) + i].gamma = bucket_c[i];
+    atomicXor((vec_t_cu*)&buckets[(node_id * num_buckets) + i].alpha, bucket_a[i]);
+    atomicXor((vec_t_cu*)&buckets[(node_id * num_buckets) + i].gamma, (vec_t_cu)bucket_c[i]);
   }
 }
 
@@ -99,9 +99,9 @@ int main(int argc, char **argv) {
   std::cout << "\n";
 
   int num_device_threads = 1024;
-  size_t num_updates_per_blocks = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
+  size_t num_updates_per_block = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
 
-  std::cout << "Batch Size: " << num_updates_per_blocks << "\n\n";
+  std::cout << "Batch Size: " << num_updates_per_block << "\n\n";
 
   size_t maxBytes = (sketchParams.num_buckets * sizeof(vec_t_cu)) + (sketchParams.num_buckets * sizeof(vec_hash_t));
   cudaFuncSetAttribute(gpuSketchTest_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, maxBytes);
@@ -112,22 +112,27 @@ int main(int argc, char **argv) {
   std::cout << "  Allocated Shared Memory of: " << (double)maxBytes / 1000 << "KB\n";
   std::cout << "\n";
 
-  std::cout << "Allocating Host Memory: " << (num_updates_per_blocks * sizeof(node_id_t)) / 1e9 << "GB\n";
-  std::cout << "Allocating GPU Memory: " << ((num_nodes * sketchParams.num_buckets * sizeof(Bucket)) + (num_updates_per_blocks * sizeof(node_id_t))) / 1e9 << "GB\n";
-
   Bucket* d_buckets;
   gpuErrchk(cudaMalloc(&d_buckets, num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
 
   node_id_t *h_edgeUpdates, *d_edgeUpdates;
+  size_t max_num_updates = 4e9;
+  size_t max_num_blocks = (2 * max_num_updates) / num_updates_per_block;
+  size_t max_act_updates = max_num_blocks * num_updates_per_block;
 
-  gpuErrchk(cudaMallocHost(&h_edgeUpdates, num_updates_per_blocks * sizeof(node_id_t)));
-  gpuErrchk(cudaMalloc(&d_edgeUpdates, num_updates_per_blocks * sizeof(node_id_t)));
+  gpuErrchk(cudaMallocHost(&h_edgeUpdates, max_act_updates * sizeof(node_id_t)));
+  gpuErrchk(cudaMalloc(&d_edgeUpdates, max_act_updates * sizeof(node_id_t)));
 
-  for (size_t update_id = 0; update_id < num_updates_per_blocks; update_id++) {
-    h_edgeUpdates[update_id] = update_id;
+  std::cout << "Allocating Host Memory: " << (max_act_updates * sizeof(node_id_t)) / 1e9 << "GB\n";
+  std::cout << "Allocating GPU Memory: " << ((num_nodes * sketchParams.num_buckets * sizeof(Bucket)) + (max_act_updates * sizeof(node_id_t))) / 1e9 << "GB\n";
+
+  for (size_t block_id = 0; block_id < max_num_blocks; block_id++) {
+    for (size_t update_id = 0; update_id < num_updates_per_block; update_id++) {
+      h_edgeUpdates[(block_id * num_updates_per_block) + update_id] = update_id;
+    }
   }
-  
-  gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, num_updates_per_blocks * sizeof(node_id_t), cudaMemcpyHostToDevice));
+
+  gpuErrchk(cudaMemcpy(d_edgeUpdates, h_edgeUpdates, max_act_updates * sizeof(node_id_t), cudaMemcpyHostToDevice));
 
   size_t sketchSeed = get_seed();
 
@@ -147,22 +152,27 @@ int main(int argc, char **argv) {
                                         60000000, 70000000, 80000000, 90000000, 100000000,
                                         200000000, 300000000, 400000000, 500000000,
                                         600000000, 700000000, 800000000, 900000000, 1000000000,
-                                        2000000000, 3000000000, 4000000000, 5000000000};
+                                        2000000000, 3000000000, 4000000000};
 
   for (auto& stream_update : stream_updates) {                                
-    int num_device_blocks = (2 * stream_update) / num_updates_per_blocks;
+    size_t num_device_blocks = (2 * stream_update) / num_updates_per_block;
 
     std::cout << "Number of stream updates: " << stream_update << "\n";
     std::cout << "  Number of device blocks: " << num_device_blocks << "\n";
-    std::cout << "  Number of updates: " << num_updates_per_blocks * num_device_blocks << "\n";
+    std::cout << "  Number of updates: " << num_updates_per_block * num_device_blocks << "\n";
 
     if (num_device_blocks == 0) {
-      std::cout << "  Current Density too low, skipping\n";
+      std::cout << "  Current number of stream updates too low, skipping\n";
       continue;
     }
 
+    if (num_device_blocks > max_num_blocks) {
+      std::cout << "  Current number of stream updates exceeds maximum, breaking out\n";
+      break;
+    }
+
     gpuErrchk(cudaEventRecord(start));
-    gpuSketchTest_kernel<<<num_device_blocks, num_device_threads, maxBytes>>>(num_device_blocks, num_nodes, num_updates_per_blocks, d_edgeUpdates, sketchParams.num_buckets, d_buckets, sketchParams.num_columns, sketchParams.bkt_per_col, sketchSeed);
+    gpuSketchTest_kernel<<<num_device_blocks, num_device_threads, maxBytes>>>(num_device_blocks, num_nodes, num_updates_per_block, d_edgeUpdates, sketchParams.num_buckets, d_buckets, sketchParams.num_columns, sketchParams.bkt_per_col, sketchSeed);
     gpuErrchk(cudaEventRecord(stop));
 
     cudaDeviceSynchronize();
@@ -174,7 +184,7 @@ int main(int argc, char **argv) {
         printf("Error: %s\n", cudaGetErrorString(err));
 
     std::cout << "CUDA Event - Kernel Execution Time (s):           " << time * 0.001 << std::endl;
-    std::cout << "CUDA Event - Rate (# of Edges / s):               " << ((num_updates_per_blocks * num_device_blocks) / 2) / (time * 0.001) << std::endl;
+    std::cout << "CUDA Event - Rate (# of Edges / s):               " << ((num_updates_per_block * num_device_blocks) / 2) / (time * 0.001) << std::endl;
   } 
 
   cudaFree(d_buckets);

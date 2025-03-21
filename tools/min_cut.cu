@@ -264,20 +264,20 @@ int main(int argc, char **argv) {
 
   std::chrono::duration<double> insert_time = flush_end - ins_start;
   std::chrono::duration<double> flush_time = flush_end - flush_start;
-  std::chrono::duration<double> query_time = query_end - flush_end;
+  std::chrono::duration<double> query_time = query_end - flush_start;
 
   double memory = get_max_mem_used();
 
   double num_seconds = insert_time.count();
   std::cout << "Insertion time(sec): " << num_seconds << std::endl;
   std::cout << "  Updates per second: " << stream.edges() / num_seconds << std::endl;
-  std::cout << "  Flush Gutters(sec): " << flush_time.count() << std::endl;
-  std::cout << "K-Connectivity: (Sketch Subgraphs)" << std::endl;
-  std::cout << "  Sampling Forests Time(sec): " << sampling_forests_sketch_time.count() + sampling_forests_adj_time.count() << std::endl;
-  std::cout << "    From Sketch Subgraphs(sec): " << sampling_forests_sketch_time.count() << std::endl;
-  std::cout << "    From Adj. list(sec): " << sampling_forests_adj_time.count() << std::endl;
-  std::cout << "VieCut Program Time(sec): " << viecut_time.count() << std::endl;
   std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
+  std::cout << "  Flush Gutters + GPU Buffers(sec): " << flush_time.count() << std::endl;
+  std::cout << "  K-Connectivity: (Sketch Subgraphs)" << std::endl;
+  std::cout << "    Sampling Forests Time(sec): " << sampling_forests_sketch_time.count() + sampling_forests_adj_time.count() << std::endl;
+  std::cout << "      From Sketch Subgraphs(sec): " << sampling_forests_sketch_time.count() << std::endl;
+  std::cout << "      From Adj. list(sec): " << sampling_forests_adj_time.count() << std::endl;
+  std::cout << "  VieCut Program Time(sec): " << viecut_time.count() << std::endl;
   std::cout << "Maximum Memory Usage(MiB): " << memory << std::endl;
 
   std::ofstream out("runtime_results.csv", std::ios_base::out | std::ios_base::app);

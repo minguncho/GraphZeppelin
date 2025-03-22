@@ -10,6 +10,7 @@
 
 #include <algorithms/global_mincut/algorithms.h>
 #include <algorithms/global_mincut/minimum_cut.h>
+#include <parallel/algorithm/exact_parallel_minimum_cut.h>
 #include <data_structure/graph_access.h>
 #include <data_structure/mutable_graph.h>
 
@@ -981,7 +982,8 @@ MinCut MCSketchAlg::calc_minimum_cut(const std::vector<Edge> &edges) {
 
   // Perform the mincut computation
   VieCut::EdgeWeight cut;
-  VieCut::minimum_cut* mc = new VieCut::viecut<GraphPtr>();
+  VieCut::exact_parallel_minimum_cut<GraphPtr> *mc =
+      new VieCut::exact_parallel_minimum_cut<GraphPtr>();
   cut = mc->perform_minimum_cut(G);
 
   // Return answer

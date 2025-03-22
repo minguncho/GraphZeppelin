@@ -139,7 +139,7 @@ target_link_libraries(GraphZeppelin PUBLIC xxhash GutterTree StreamingUtilities 
 target_include_directories(GraphZeppelin PUBLIC include/)
 target_compile_options(GraphZeppelin PUBLIC -fopenmp)
 target_link_options(GraphZeppelin PUBLIC -fopenmp)
-target_compile_definitions(GraphZeppelin PUBLIC XXH_INLINE_ALL)
+target_compile_definitions(GraphZeppelin PUBLIC XXH_INLINE_ALL PARALLEL)
 
 add_library(GraphZeppelinVerifyCC
   src/cc_sketch_alg.cpp
@@ -155,7 +155,7 @@ target_link_libraries(GraphZeppelinVerifyCC PUBLIC xxhash GutterTree StreamingUt
 target_include_directories(GraphZeppelinVerifyCC PUBLIC include/ include/test/)
 target_compile_options(GraphZeppelinVerifyCC PUBLIC -fopenmp)
 target_link_options(GraphZeppelinVerifyCC PUBLIC -fopenmp)
-target_compile_definitions(GraphZeppelinVerifyCC PUBLIC XXH_INLINE_ALL VERIFY_SAMPLES_F)
+target_compile_definitions(GraphZeppelinVerifyCC PUBLIC XXH_INLINE_ALL PARALLEL VERIFY_SAMPLES_F)
 
 if (BUILD_EXE)
   add_executable(tests

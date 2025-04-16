@@ -172,7 +172,7 @@ public:
                 CCAlgConfiguration config)
      : MCSketchAlg(num_nodes, sketchParams.seed, max_sketch_graphs, config),
        edge_store(sketchParams.seed, num_nodes, sketch_bytes, num_subgraphs, 
-                  (use_edge_store ? initial_sketch_graphs : _max_sketch_graphs)),
+                  (use_edge_store ? initial_sketch_graphs : max_sketch_graphs)),
        num_nodes(num_nodes),
        num_host_threads(num_threads),
        num_reader_threads(num_reader_threads), 

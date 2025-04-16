@@ -10,7 +10,7 @@
 
 static bool cert_clean_up = false;
 static bool shutdown = false;
-static bool cudaUVM_enabled = true;
+static bool cudaUVM_enabled = false;
 constexpr double epsilon = 0.75;
 
 static double get_max_mem_used() {
@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
 
   // Getting sketch seed
   sketchParams.seed = get_seed();
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
+  MCGPUSketchAlg mc_gpu_alg{num_vertices, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
     num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, use_edge_store, mc_config};
 
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};

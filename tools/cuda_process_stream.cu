@@ -64,9 +64,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<CCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4) {
+  if (argc != 4 && argc != 5) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, [num_batch_per_buffer]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -78,6 +78,11 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   int reader_threads = std::atoi(argv[3]);
+
+  int num_batch_per_buffer = 540; // Default value of num_batch_per_buffer
+  if (argc == 5) {
+    num_batch_per_buffer = std::atoi(argv[4]);
+  }
 
   BinaryFileStream stream(stream_file);
   node_id_t num_nodes = stream.vertices();
@@ -123,7 +128,7 @@ int main(int argc, char **argv) {
   driver_config.gutter_conf().buffer_exp(20).queue_factor(8).wq_batch_per_elm(32);
   auto cc_config = CCAlgConfiguration().batch_factor(1);
 
-  CCGPUSketchAlg cc_gpu_alg{num_nodes, num_updates, num_threads, sketchParams, cc_config};
+  CCGPUSketchAlg cc_gpu_alg{num_nodes, num_updates, num_threads, num_batch_per_buffer, sketchParams, cc_config};
   GraphSketchDriver<CCGPUSketchAlg> driver{&cc_gpu_alg, &stream, driver_config, reader_threads};
   
   auto ins_start = std::chrono::steady_clock::now();

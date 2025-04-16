@@ -43,6 +43,9 @@ cd build
 
 out_file=runtime_results.csv
 
+# Note Message for GPU performance
+echo "Note: To ensure the best performance for GPU, make sure to maximize its clock speed by ./nvidia-smi -lgc [CLOCK_SPEED]"
+
 # Write header to outfile csv
 echo "edge_store, stream_file, num_batch_per_buffer, ingestion_rate (1e6), memory_usage (MiB), query_latency (sec), aprox. min_cut" > $out_file
 

@@ -214,6 +214,7 @@ int main(int argc, char **argv) {
   // Get spanning forests then create a METIS format file
   std::cout << "Generating Certificates...\n";
   int num_sampled_zero_graphs = 0;
+  int final_mincut_value = 0;
   for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
     std::vector<Edge> SFs_edges;
     std::set<Edge> edges;
@@ -256,6 +257,7 @@ int main(int argc, char **argv) {
       // Otherwise, if a sketched subgraph returns a value < k, we use that
       std::cout << "Mincut found in graph: " << graph_id << " mincut: " << mc.value << std::endl;
       std::cout << "Final mincut value: " << (mc.value * (pow(2, graph_id))) << std::endl;
+      final_mincut_value = mc.value * (pow(2, graph_id));
       break;
     }
   }
@@ -286,6 +288,6 @@ int main(int argc, char **argv) {
   std::ofstream out("runtime_results.csv", std::ios_base::out | std::ios_base::app);
   out << std::fixed;
   out << std::setprecision(3);
-  out << stream.edges() / num_seconds / 1e6 << "," << memory << ", " << query_time.count() 
-      << std::endl;
+  out << stream.edges() / num_seconds / 1e6 << ", " << memory << ", " << query_time.count() 
+      << ", " << final_mincut_value << std::endl;
 }

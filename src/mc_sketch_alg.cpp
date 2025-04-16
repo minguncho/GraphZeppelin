@@ -224,12 +224,12 @@ inline bool MCSketchAlg::sample_supernode(Sketch &skt) {
 }
 
 /*
- * Returns the ith half-open range in the division of [0, length] into divisions segments.
+ * Returns the ith half-open range in the division of [0, length) into divisions segments.
  */
 inline std::pair<node_id_t, node_id_t> get_ith_partition(node_id_t length, size_t i,
                                                          size_t divisions) {
   double div_factor = (double)length / divisions;
-  return {ceil(div_factor * i), ceil(div_factor * (i + 1))};
+  return {ceil(div_factor * i), std::min(double(length), ceil(div_factor * (i + 1)))};
 }
 
 /*
@@ -854,7 +854,6 @@ void MCSketchAlg::filter_sf_edges(SpanningForest &sf, size_t graph_id) {
       size_t orig_start = start;
       while (edges[start].src == edges[orig_start].src) {
         Edge edge = edges[start];
-        // TODO: Need to address that this should only update a particular subgraph!
         sketches[(graph_id * num_vertices) + edge.src]->update(static_cast<vec_t>(concat_pairing_fn(edge.src, edge.dst)));
         ++start;
       }

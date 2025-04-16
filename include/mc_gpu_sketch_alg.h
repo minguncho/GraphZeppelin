@@ -142,7 +142,7 @@ private:
   int num_reader_threads;
 
   // Maximum number of edge updates in one batch
-  int num_batch_per_buffer = 1080;
+  int num_batch_per_buffer;
   
   // Number of subgraphs in sketch representation
   int max_sketch_graphs; // Max. number of subgraphs that can be in sketch graphs
@@ -165,29 +165,32 @@ private:
 
   std::mutex sketch_creation_lock;
 public:
-  MCGPUSketchAlg(node_id_t num_vertices, int num_threads, int _num_reader_threads,
-                SketchParams _sketchParams, int _num_subgraphs,
-                int _max_sketch_graphs, int _k, size_t _sketch_bytes, int _initial_sketch_graphs,
+  MCGPUSketchAlg(node_id_t num_nodes, int num_threads, int num_reader_threads,
+                int num_batch_per_buffer, SketchParams sketchParams, int num_subgraphs,
+                int max_sketch_graphs, int k, size_t sketch_bytes, int initial_sketch_graphs,
                 CCAlgConfiguration config)
-     : MCSketchAlg(num_vertices, _sketchParams.seed, _max_sketch_graphs, config),
-       edge_store(_sketchParams.seed, num_vertices, _sketch_bytes, _num_subgraphs, _initial_sketch_graphs) {
+     : MCSketchAlg(num_nodes, sketchParams.seed, max_sketch_graphs, config),
+       edge_store(sketchParams.seed, num_nodes, sketch_bytes, num_subgraphs, initial_sketch_graphs),
+       num_nodes(num_nodes),
+       num_host_threads(num_threads),
+       num_reader_threads(num_reader_threads), 
+       num_batch_per_buffer(num_batch_per_buffer),
+       default_skt_params(sketchParams),
+       num_subgraphs(num_subgraphs),
+       max_sketch_graphs(max_sketch_graphs),
+       k(k),
+       cur_subgraphs(initial_sketch_graphs),
+       sketches_factor(config.get_sketches_factor()) {
+        
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
 
-    default_skt_params = _sketchParams;
-    num_nodes = num_vertices;
-    k = _k;
-    sketches_factor = config.get_sketches_factor();
-    num_host_threads = num_threads;
-    num_reader_threads = _num_reader_threads;
+    std::cout << "Num batches per buffer: " << num_batch_per_buffer << "\n";
 
-    if (_max_sketch_graphs < _initial_sketch_graphs) {
+    if (max_sketch_graphs < initial_sketch_graphs) {
       std::cerr << "ERROR: Cannot have initial sketch graphs > max sketch graphs" << std::endl;
       exit(EXIT_FAILURE);
     }
-    num_subgraphs = _num_subgraphs;
-    cur_subgraphs = _initial_sketch_graphs;
-    max_sketch_graphs = _max_sketch_graphs;
     subgraphs = new SketchSubgraph[max_sketch_graphs];
 
     // Create a bigger batch size to apply edge updates when subgraph is turning into sketch

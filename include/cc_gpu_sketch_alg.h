@@ -17,7 +17,7 @@ private:
   int num_host_threads;
 
   // Number of batches in a buffer to accept until GPU kernel launch
-  int num_batch_per_buffer = 540;
+  int num_batch_per_buffer;
   CudaStream<CCGPUSketchAlg>** cudaStreams;
 
   size_t batch_size;
@@ -26,19 +26,17 @@ private:
 
   std::vector<std::chrono::duration<double>> small_batch_time;
 
-  // kron_13 = 54
-  // kron_15 = 216
-  // kron_16 = 540
-  // kron_17 = 540
-  // kron_18 = 540
-
 public:
-  CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, SketchParams _sketchParams, CCAlgConfiguration config = CCAlgConfiguration()) : CCSketchAlg(_num_nodes, _sketchParams.cudaUVM_enabled, _sketchParams.seed, _sketchParams.cudaUVM_buckets, config){ 
+  CCGPUSketchAlg(node_id_t _num_nodes, size_t _num_updates, int num_threads, 
+                int num_batch_per_buffer, SketchParams sketchParams, 
+                CCAlgConfiguration config = CCAlgConfiguration()) 
+     : CCSketchAlg(_num_nodes, sketchParams.cudaUVM_enabled, sketchParams.seed, sketchParams.cudaUVM_buckets, config),
+       num_host_threads(num_threads),
+       num_batch_per_buffer(num_batch_per_buffer),
+       sketchParams(sketchParams) { 
+
     // Start timer for initializing
     auto init_start = std::chrono::steady_clock::now();
-
-    num_host_threads = num_threads;
-    sketchParams = _sketchParams;
 
     batch_size = get_desired_updates_per_batch();
     small_batch_size = batch_size * small_batch_perc;

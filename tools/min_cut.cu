@@ -68,9 +68,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<MCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5) {
+  if (argc != 5 && argc != 6) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads, inital_sketch_graphs" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, inital_sketch_graphs, [num_batch_per_buffer]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -83,6 +83,11 @@ int main(int argc, char **argv) {
   }
   int reader_threads = std::atoi(argv[3]);
   int initial_sketch_graphs = std::atoi(argv[4]);
+
+  int num_batch_per_buffer = 540; // Default value of num_batch_per_buffer
+  if (argc == 6) {
+    num_batch_per_buffer = std::atoi(argv[5]);
+  }
 
   BinaryFileStream stream(stream_file);
   node_id_t num_nodes = stream.vertices();
@@ -157,16 +162,10 @@ int main(int argc, char **argv) {
 
   std::cout << "CUDA UVM Enabled: " << cudaUVM_enabled << "\n";
   sketchParams.cudaUVM_enabled = cudaUVM_enabled;
-  /*if (cudaUVM_enabled) {
-    // Allocate memory for buckets
-    Bucket* cudaUVM_buckets;
-    gpuErrchk(cudaMallocManaged(&cudaUVM_buckets, initial_sketch_graphs * num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
-    sketchParams.cudaUVM_buckets = cudaUVM_buckets;
-  }*/
 
   // Getting sketch seed
   sketchParams.seed = get_seed();
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, sketchParams, 
+  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
     num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, initial_sketch_graphs, mc_config};
 
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};

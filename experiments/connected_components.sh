@@ -1,3 +1,10 @@
+#
+# Name: connected_components.sh
+#
+# Full system experiments for solving the 
+#   connected components problem with graph stream
+#
+
 if [[ $# -lt 6 ]]; then
   echo "ERROR: Invalid Arguments!"
   echo "USAGE: results_dir workers readers num_it, using_num_batch_table, stream_files[+]"

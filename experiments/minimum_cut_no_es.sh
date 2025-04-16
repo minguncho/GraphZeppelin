@@ -1,3 +1,11 @@
+#
+# Name: minimum_cut_no_es.sh
+#
+# Full system experiments for solving the 
+#   minimum cut problem with graph stream 
+# Note: Utilizes all-sketch subgraphs data structure
+#
+
 if [[ $# -lt 6 ]]; then
   echo "ERROR: Invalid Arguments!"
   echo "USAGE: results_dir workers readers num_it, using_num_batch_table, stream_files[+]"

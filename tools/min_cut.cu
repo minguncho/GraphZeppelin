@@ -211,6 +211,7 @@ int main(int argc, char **argv) {
   |                                                                    |
   \********************************************************************/
 
+  auto query_start = std::chrono::steady_clock::now();
   // Get spanning forests then create a METIS format file
   std::cout << "Generating Certificates...\n";
   int num_sampled_zero_graphs = 0;
@@ -269,7 +270,7 @@ int main(int argc, char **argv) {
 
   std::chrono::duration<double> insert_time = flush_end - ins_start;
   std::chrono::duration<double> flush_time = flush_end - flush_start;
-  std::chrono::duration<double> query_time = query_end - flush_start;
+  std::chrono::duration<double> query_time = query_end - query_start;
 
   double memory = get_max_mem_used();
 

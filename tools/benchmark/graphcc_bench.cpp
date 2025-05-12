@@ -22,9 +22,10 @@ constexpr uint64_t seed = 374639;
 
 // If this flag is uncommented then run the FileIngestion benchmarks
 // #define FILE_INGEST_F
-// const std::string stream_file_path = "<path/to/stream>";
+
 
 #ifdef FILE_INGEST_F
+const std::string stream_file_path = "<path/to/stream>";
 // Linux-only, flush the filesystem cache
 // requires sudo privileges :(
 static void flush_filesystem_cache() {

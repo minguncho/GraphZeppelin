@@ -18,7 +18,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Eigen)
 
-add_executable(example_exe
+add_executable(example_exe.o
   example_exe.cpp
 )
-target_include_directories(example_exe SYSTEM PRIVATE "${FETCHCONTENT_BASE_DIR}/eigen-src")
+target_include_directories(example_exe.o SYSTEM PRIVATE "${FETCHCONTENT_BASE_DIR}/eigen-src")

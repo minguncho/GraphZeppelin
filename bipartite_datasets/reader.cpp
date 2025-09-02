@@ -48,16 +48,17 @@ std::vector<Interaction> parse_file(string filename) {
         }
         myfile.close();
 
-        for (const auto& i : interactions) {
-            std::cout << i.userID << ", " << i.subredditID << std::endl;
-        }
+        // for (const auto& i : interactions) {
+        //     std::cout << i.userID << ", " << i.subredditID << std::endl;
+        // }
+        printf("file has %lu interactions\n", interactions.size());
     }
 
-    else cout << "Unable to open file"; 
+    else cout << "Unable to open file\n"; 
     return interactions;
 }
 
 int main(){
-    string filename = "example.txt";
+    string filename = "data/kaggle_reddit_2021_cleaned.txt";
     parse_file(filename);
 }

@@ -83,7 +83,7 @@ Interactions parse_file(string filename) {
     return output;
 }
 
-void project_dataset(string filename) {
+void project_dataset(string filename, bool display = false) {
 
   Interactions interactions;
   interactions = parse_file(filename);
@@ -91,7 +91,7 @@ void project_dataset(string filename) {
   int rows = interactions.num_users;
   int cols = interactions.num_subreddits;
 
-  Eigen::SparseMatrix<double, Eigen::ColMajor> bipartite_sparse_matrix(rows, cols);
+  Eigen::SparseMatrix<int, Eigen::ColMajor> bipartite_sparse_matrix(rows, cols);
   //int counter = 0;
   for (Interaction i : interactions.interaction_vec) {
     bipartite_sparse_matrix.coeffRef(i.userID, i.subredditID) = 1;
@@ -99,8 +99,8 @@ void project_dataset(string filename) {
 
   //auto result = bipartite_sparse_matrix.colwise().sum();
 
-  Eigen::VectorXd ones = Eigen::VectorXd::Ones(rows);
-  Eigen::VectorXd result = bipartite_sparse_matrix.transpose() * ones;
+  Eigen::VectorXi ones = Eigen::VectorXi::Ones(rows);
+  Eigen::VectorXi result = bipartite_sparse_matrix.transpose() * ones;
   double sum = result.sum();
   double mean = sum / (static_cast<double>(cols));
   printf("mean subreddit degree is %f over %d columns\n", mean, cols);
@@ -108,13 +108,13 @@ void project_dataset(string filename) {
   long int edge_upper_bound = 0;
   int counter = 0;
   for (double i : result) {
-    if (counter%1000==0) {
+    if (display && counter%1000==0) {
       printf("check 1 %ld\n", edge_upper_bound);
     }
     int degree = static_cast<int>(i);
     int clique_size = (degree * (degree-1))/2;
     edge_upper_bound += clique_size;
-    if (counter%1000==0) {
+    if (display && counter%1000==0) {
       printf("clique size %d, check 2 %ld\n", clique_size, edge_upper_bound);
     }
     counter++;
@@ -123,12 +123,12 @@ void project_dataset(string filename) {
 
 
   //std::cout << bipartite_sparse_matrix << std::endl;
-  //Eigen::SparseMatrix<double, Eigen::ColMajor> transposed_bipartite_sparse_matrix =  bipartite_sparse_matrix.transpose();
+  Eigen::SparseMatrix<int, Eigen::ColMajor> transposed_bipartite_sparse_matrix =  bipartite_sparse_matrix.transpose();
   //std::cout << transposed_bipartite_sparse_matrix << std::endl;
-  //std::cout << "Bipartite matrix and transpose produced. Computing projected matrix:" << std::endl;
-  //Eigen::SparseMatrix<double, Eigen::ColMajor> projected = bipartite_sparse_matrix * transposed_bipartite_sparse_matrix;
+  std::cout << "Bipartite matrix and transpose produced. Computing projected matrix:" << std::endl;
+  Eigen::SparseMatrix<int, Eigen::ColMajor> projected = bipartite_sparse_matrix * transposed_bipartite_sparse_matrix;
   //std::cout << projected << std::endl;
-  //printf("Projected matrix is %ld by %ld with %ld nonzeros \n", projected.outerSize(), projected.innerSize(), projected.nonZeros());
+  printf("Projected matrix is %ld by %ld with %ld nonzeros \n", projected.outerSize(), projected.innerSize(), projected.nonZeros());
 
 }
 

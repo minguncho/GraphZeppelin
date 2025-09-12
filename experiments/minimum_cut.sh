@@ -51,6 +51,8 @@ cd build
 
 out_file=runtime_results.csv
 
+eps_val=(1.0 0.9 0.8 0.7 0.6 0.5 0.4)
+
 # Note Message for GPU performance
 echo "Note: To ensure the best performance for GPU, make sure to maximize its clock speed by ./nvidia-smi -lgc [CLOCK_SPEED]"
 
@@ -65,21 +67,24 @@ do
 
   stream_name=`basename $input`
 
-  for (( it=1; it <= $num_it; ++it ))
+  for eps in ${eps_val[@]}
   do
-    if [ $using_num_batch_table = true ]
-    then
-      if [[ -v "num_batch_table[$stream_name]" ]] # Check if registered in table
-      then 
-        echo -n "yes, $stream_name, ${num_batch_table[$stream_name]}, " >> $out_file
-        ./min_cut $input $workers $readers no ${num_batch_table[$stream_name]}
+    for (( it=1; it <= $num_it; ++it ))
+    do
+      if [ $using_num_batch_table = true ]
+      then
+        if [[ -v "num_batch_table[$stream_name]" ]] # Check if registered in table
+        then 
+          echo -n "yes, $stream_name, ${num_batch_table[$stream_name]}, " >> $out_file
+          ./min_cut $input $workers $readers no $eps ${num_batch_table[$stream_name]}
+        else
+          echo $stream_name " does not exist in num_batch_table"
+        fi
       else
-        echo $stream_name " does not exist in num_batch_table"
+        echo -n "yes, $stream_name, 540, " >> $out_file
+        ./min_cut $input $workers $readers no
       fi
-    else
-      echo -n "yes, $stream_name, 540, " >> $out_file
-      ./min_cut $input $workers $readers no
-    fi
+    done
   done
 done
 

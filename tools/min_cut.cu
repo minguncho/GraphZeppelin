@@ -11,7 +11,6 @@
 static bool cert_clean_up = false;
 static bool shutdown = false;
 static bool cudaUVM_enabled = false;
-constexpr double epsilon = 0.75;
 
 static double get_max_mem_used() {
   struct rusage data;
@@ -68,9 +67,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<MCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5 && argc != 6) {
+  if (argc != 6 && argc != 7) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, [num_batch_per_buffer]" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, eps, [num_batch_per_buffer]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -92,10 +91,12 @@ int main(int argc, char **argv) {
     std::cerr << "ERROR: Did not recognize argument = " << argv[4] << std::endl;
     exit(EXIT_FAILURE);
   }
+
+  double epsilon = std::stod(argv[5]);
   
   int num_batch_per_buffer = 540; // Default value of num_batch_per_buffer
-  if (argc == 6) {
-    num_batch_per_buffer = std::atoi(argv[5]);
+  if (argc == 7) {
+    num_batch_per_buffer = std::atoi(argv[6]);
   }
 
   BinaryFileStream stream(stream_file);

@@ -91,7 +91,7 @@ void project_dataset(string filename, bool display = false) {
   int rows = interactions.num_users;
   int cols = interactions.num_subreddits;
 
-  Eigen::SparseMatrix<int, Eigen::ColMajor> bipartite_sparse_matrix(rows, cols);
+  Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> bipartite_sparse_matrix(rows, cols);
   //int counter = 0;
   for (Interaction i : interactions.interaction_vec) {
     bipartite_sparse_matrix.coeffRef(i.userID, i.subredditID) = 1;
@@ -121,12 +121,12 @@ void project_dataset(string filename, bool display = false) {
   }
   printf("upper bound on number of edges: %ld\n", edge_upper_bound);
 
-
+  printf("setting index type to be long long int which has %d bytes on this machine\n", sizeof(long long int));
   //std::cout << bipartite_sparse_matrix << std::endl;
-  Eigen::SparseMatrix<int, Eigen::ColMajor> transposed_bipartite_sparse_matrix =  bipartite_sparse_matrix.transpose();
+  Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> transposed_bipartite_sparse_matrix =  bipartite_sparse_matrix.transpose();
   //std::cout << transposed_bipartite_sparse_matrix << std::endl;
   std::cout << "Bipartite matrix and transpose produced. Computing projected matrix:" << std::endl;
-  Eigen::SparseMatrix<int, Eigen::ColMajor> projected = bipartite_sparse_matrix * transposed_bipartite_sparse_matrix;
+  Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> projected = bipartite_sparse_matrix * transposed_bipartite_sparse_matrix;
   //std::cout << projected << std::endl;
   printf("Projected matrix is %ld by %ld with %ld nonzeros \n", projected.outerSize(), projected.innerSize(), projected.nonZeros());
 

@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
@@ -204,6 +205,15 @@ void MCGPUSketchAlg::apply_flush_updates() {
   cudaDeviceSynchronize();
 }
 
-std::vector<Edge> MCGPUSketchAlg::get_adjlist_spanning_forests() {
-  return edge_store.get_edges();
+std::vector<SpanningForest> MCGPUSketchAlg::get_adjlist_spanning_forests(size_t graph_id, size_t k) {
+  std::vector<SpanningForest> SFs;
+
+  auto spanning_forests = edge_store.calc_k_spanning_forests(graph_id, k);
+
+  for (size_t k_id = 0; k_id < k; k_id++) {
+    SpanningForest ret(num_nodes, spanning_forests[k_id]);
+    SFs.push_back(ret);
+  }  
+
+  return SFs;
 }

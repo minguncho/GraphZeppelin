@@ -270,7 +270,7 @@ public:
     std::cout << "  Adjacency list:      " << edge_store.get_num_edges() << std::endl;
   }
 
-  std::vector<Edge> get_adjlist_spanning_forests();
+  std::vector<SpanningForest> get_adjlist_spanning_forests(size_t graph_id, size_t k);
   int get_num_sketch_graphs() { return cur_subgraphs; }
 
   size_t get_num_adjlist_edges() { return edge_store.get_num_edges(); }

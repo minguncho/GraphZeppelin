@@ -314,3 +314,55 @@ void EdgeStore::check_if_too_big() {
   std::cerr << "    num_returned  = " << num_returned << std::endl;
 #endif
 }
+
+void EdgeStore::set_up_mincut_query(size_t k) {
+  if (!mincut_query_init) {
+    mincut_query_init = true;
+
+    // Initialize k DSUs and spanning forests
+    for (size_t k_id = 0; k_id < k; k_id++) {
+      k_dsu.push_back(DisjointSetUnion(num_vertices));
+      spanning_forests.push_back(new std::unordered_set<node_id_t>[num_vertices]);
+    }
+  }
+}
+
+void EdgeStore::reset_mincut_query() {
+  // Reset k DSUs and spanning forests
+  for (auto& dsu : k_dsu) {
+    dsu.reset();
+  }
+  for (auto& sf : spanning_forests) {
+    for (node_id_t node_id = 0; node_id < num_vertices; node_id++) {
+      sf[node_id].clear();
+    }
+  }
+}
+
+std::vector<std::unordered_set<node_id_t>*> EdgeStore::calc_k_spanning_forests(size_t graph_id, size_t k) {
+  set_up_mincut_query(k);
+  reset_mincut_query();
+
+  // Iterate through each vertex
+  for (node_id_t node_id = 0; node_id < num_vertices; node_id++) {
+    // Go through dst of each src
+    for (auto& dst_update : adjlist[node_id ]) {
+      // Check if edge belongs to current graph_id
+      if (dst_update.subgraph < graph_id) continue;
+
+      auto src = std::min(node_id, dst_update.dst);
+      auto dst = std::max(node_id, dst_update.dst);
+
+      // Try to insert to spanning forests
+      for (size_t k_id = 0; k_id < k; k_id++) {
+        // Check if merge to DSU was successful
+        if (k_dsu[k_id].merge(src, dst).merged) {
+          // this edge adds new connectivity information so add to spanning forest
+          spanning_forests[k_id][src].insert(dst);
+        }
+      }
+    }
+  }
+
+  return spanning_forests;
+}

@@ -218,29 +218,29 @@ int main(int argc, char **argv) {
   int num_sampled_zero_graphs = 0;
   int final_mincut_value = 0;
   for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
+    std::vector<SpanningForest> SFs;
     std::vector<Edge> SFs_edges;
-    std::set<Edge> edges;
 
     if (graph_id >= num_sketch_graphs) { // Get Spanning forests from adj list
       std::cout << "S" << graph_id << " (Adj. list):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
-      SFs_edges = mc_gpu_alg.get_adjlist_spanning_forests();
+      SFs = mc_gpu_alg.get_adjlist_spanning_forests(graph_id, k);
       sampling_forests_adj_time += std::chrono::steady_clock::now() - sampling_forests_start;
     } 
     else { // Get Spanning forests from sketch subgraph
       std::cout << "S" << graph_id << " (Sketch):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
-      auto sfs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id, k);
+      SFs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id, k);
       sampling_forests_sketch_time += std::chrono::steady_clock::now() - sampling_forests_start;
-
-      std::cerr << "Query done" << std::endl;
-      for (const auto &sf : sfs) {
-        for (auto edge : sf.get_edges()) {
-          SFs_edges.push_back(edge);
-        }
-      }
-      std::cout << "  Number of edges in spanning forests: " << SFs_edges.size() << "\n";
     }
+    
+    std::cerr << "Query done" << std::endl;
+    for (const auto &sf : SFs) {
+      for (auto edge : sf.get_edges()) {
+        SFs_edges.push_back(edge);
+      }
+    }
+    std::cout << "  Number of edges in spanning forests: " << SFs_edges.size() << "\n";
 
     // now perform minimum cut computation
     auto viecut_start = std::chrono::steady_clock::now();
@@ -253,10 +253,7 @@ int main(int argc, char **argv) {
       std::cout << "  S" << graph_id << " (Sketch): " << mc.value << "\n";
     }
 
-    if (graph_id >= num_sketch_graphs || mc.value < k) {
-      // we return the adjacency answer regardless of its value
-      // This works under the assumption that all the previous sketched min cuts were invalid
-      // Otherwise, if a sketched subgraph returns a value < k, we use that
+    if (mc.value < k) {
       std::cout << "Mincut found in graph: " << graph_id << " mincut: " << mc.value << std::endl;
       std::cout << "Final mincut value: " << (mc.value * (pow(2, graph_id))) << std::endl;
       final_mincut_value = mc.value * (pow(2, graph_id));

@@ -321,8 +321,9 @@ void EdgeStore::set_up_mincut_query(size_t k) {
 
     // Initialize k DSUs and spanning forests
     for (size_t k_id = 0; k_id < k; k_id++) {
-      k_dsu.push_back(DisjointSetUnion(num_vertices));
-      spanning_forests.push_back(new std::unordered_set<node_id_t>[num_vertices]);
+      k_dsu.push_back(DisjointSetUnion_MT(num_vertices));
+      k_spanning_forests.push_back(new std::unordered_set<node_id_t>[num_vertices]);
+      k_spanning_forest_mtxs.push_back(new std::mutex[num_vertices]);
     }
   }
 }
@@ -332,7 +333,7 @@ void EdgeStore::reset_mincut_query() {
   for (auto& dsu : k_dsu) {
     dsu.reset();
   }
-  for (auto& sf : spanning_forests) {
+  for (auto& sf : k_spanning_forests) {
     for (node_id_t node_id = 0; node_id < num_vertices; node_id++) {
       sf[node_id].clear();
     }
@@ -344,9 +345,10 @@ std::vector<std::unordered_set<node_id_t>*> EdgeStore::calc_k_spanning_forests(s
   reset_mincut_query();
 
   // Iterate through each vertex
+#pragma omp parallel for
   for (node_id_t node_id = 0; node_id < num_vertices; node_id++) {
     // Go through dst of each src
-    for (auto& dst_update : adjlist[node_id ]) {
+    for (auto& dst_update : adjlist[node_id]) {
       // Check if edge belongs to current graph_id
       if (dst_update.subgraph < graph_id) continue;
 
@@ -358,12 +360,15 @@ std::vector<std::unordered_set<node_id_t>*> EdgeStore::calc_k_spanning_forests(s
         // Check if merge to DSU was successful
         if (k_dsu[k_id].merge(src, dst).merged) {
           // this edge adds new connectivity information so add to spanning forest
-          spanning_forests[k_id][src].insert(dst);
+          {
+            std::lock_guard<std::mutex> lk(k_spanning_forest_mtxs[k_id][src]);
+            k_spanning_forests[k_id][src].insert(dst);
+          }
           break;
         }
       }
     }
   }
 
-  return spanning_forests;
+  return k_spanning_forests;
 }

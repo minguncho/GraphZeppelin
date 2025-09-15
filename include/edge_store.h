@@ -38,8 +38,10 @@ class EdgeStore {
   std::mutex* adj_mutex;
   std::mutex contract_lock;
 
-  std::vector<DisjointSetUnion<node_id_t>> k_dsu;
-  std::vector<std::unordered_set<node_id_t>*> spanning_forests;
+  std::vector<DisjointSetUnion_MT<node_id_t>> k_dsu;
+  std::vector<std::unordered_set<node_id_t>*> k_spanning_forests;
+  std::vector<std::mutex*> k_spanning_forest_mtxs;
+
   bool mincut_query_init = false;
 
   std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);

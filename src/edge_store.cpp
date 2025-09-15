@@ -359,6 +359,7 @@ std::vector<std::unordered_set<node_id_t>*> EdgeStore::calc_k_spanning_forests(s
         if (k_dsu[k_id].merge(src, dst).merged) {
           // this edge adds new connectivity information so add to spanning forest
           spanning_forests[k_id][src].insert(dst);
+          break;
         }
       }
     }

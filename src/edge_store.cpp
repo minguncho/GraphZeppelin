@@ -355,6 +355,9 @@ std::vector<std::unordered_set<node_id_t>*> EdgeStore::calc_k_spanning_forests(s
       auto src = std::min(node_id, dst_update.dst);
       auto dst = std::max(node_id, dst_update.dst);
 
+      // Prevent duplicate edge getting added to other spanning forests
+      if (src > dst) continue;
+
       // Try to insert to spanning forests
       for (size_t k_id = 0; k_id < k; k_id++) {
         // Check if merge to DSU was successful

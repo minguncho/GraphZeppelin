@@ -275,8 +275,8 @@ int main(int argc, char **argv) {
   double num_seconds = insert_time.count();
   std::cout << "Insertion time(sec): " << num_seconds << std::endl;
   std::cout << "  Updates per second: " << stream.edges() / num_seconds << std::endl;
-  std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "  Flush Gutters + GPU Buffers(sec): " << flush_time.count() << std::endl;
+  std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "  K-Connectivity: (Sketch Subgraphs)" << std::endl;
   std::cout << "    Sampling Forests Time(sec): " << sampling_forests_sketch_time.count() + sampling_forests_adj_time.count() << std::endl;
   std::cout << "      From Sketch Subgraphs(sec): " << sampling_forests_sketch_time.count() << std::endl;

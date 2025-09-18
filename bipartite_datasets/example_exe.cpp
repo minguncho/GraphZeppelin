@@ -27,6 +27,7 @@ bool compareInteraction(const Interaction &a, const Interaction &b) {
   }
 }
 
+// parse the input file as a vector of interactions.
 Interactions parse_file(string filename) {
     string line;
     ifstream myfile (filename);
@@ -83,8 +84,8 @@ Interactions parse_file(string filename) {
     return output;
 }
 
-void project_dataset(string filename, bool display = false) {
-
+// build a sparse matrix representation of the bipartite graph from the input dataset.
+Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> build_bipartite_matrix(string filename) {
   Interactions interactions;
   interactions = parse_file(filename);
 
@@ -97,31 +98,47 @@ void project_dataset(string filename, bool display = false) {
     bipartite_sparse_matrix.coeffRef(i.userID, i.subredditID) = 1;
   }
 
+  return bipartite_sparse_matrix;
+}
+
+//compute an estimate of the number of edges in the projected matrix, but doesn't actually compute the projection.
+void estimate_density(Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> bipartite_sparse_matrix) {
   //auto result = bipartite_sparse_matrix.colwise().sum();
+
+  long long int rows = bipartite_sparse_matrix.rows();
+  long long int cols = bipartite_sparse_matrix.cols();
 
   Eigen::VectorXi ones = Eigen::VectorXi::Ones(rows);
   Eigen::VectorXi result = bipartite_sparse_matrix.transpose() * ones;
   double sum = result.sum();
   double mean = sum / (static_cast<double>(cols));
-  printf("mean subreddit degree is %f over %d columns\n", mean, cols);
+  printf("mean subreddit degree is %f over %lld columns\n", mean, cols);
   
   long int edge_upper_bound = 0;
   int counter = 0;
   for (double i : result) {
-    if (display && counter%1000==0) {
-      printf("check 1 %ld\n", edge_upper_bound);
-    }
+    // if (display && counter%1000==0) {
+    //   printf("check 1 %ld\n", edge_upper_bound);
+    // }
     int degree = static_cast<int>(i);
     int clique_size = (degree * (degree-1))/2;
     edge_upper_bound += clique_size;
-    if (display && counter%1000==0) {
-      printf("clique size %d, check 2 %ld\n", clique_size, edge_upper_bound);
-    }
+    // if (display && counter%1000==0) {
+    //   printf("clique size %d, check 2 %ld\n", clique_size, edge_upper_bound);
+    // }
     counter++;
   }
   printf("upper bound on number of edges: %ld\n", edge_upper_bound);
+}
 
-  printf("setting index type to be long long int which has %d bytes on this machine\n", sizeof(long long int));
+//load in the dataset and compute the projected matrix, then report the number of nonzeros.
+void project_dataset(string filename, bool display = false) {
+
+  Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> bipartite_sparse_matrix = build_bipartite_matrix(filename);
+
+  estimate_density(bipartite_sparse_matrix);
+
+  //printf("setting index type to be long long int which has %ld bytes on this machine\n", sizeof(long long int));
   //std::cout << bipartite_sparse_matrix << std::endl;
   Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> transposed_bipartite_sparse_matrix =  bipartite_sparse_matrix.transpose();
   //std::cout << transposed_bipartite_sparse_matrix << std::endl;
@@ -132,9 +149,16 @@ void project_dataset(string filename, bool display = false) {
 
 }
 
+//run this function to estimate the number of edges that will be in the projected matrix. MUCH faster than actually computing the projection.
+void probe_dataset(string filename) {
+  Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> bipartite_sparse_matrix = build_bipartite_matrix(filename);
+  estimate_density(bipartite_sparse_matrix);
+}
+
  
 int main() {
   //string filename = "data/example.txt";
   string filename = "../data/kaggle_reddit_2021_cleaned.txt";
-  project_dataset(filename);
+  //project_dataset(filename);
+  probe_dataset(filename);
 }

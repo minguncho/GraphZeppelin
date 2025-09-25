@@ -346,26 +346,23 @@ std::vector<std::unordered_set<node_id_t>*> EdgeStore::calc_k_spanning_forests(s
 
   // Iterate through each vertex
 #pragma omp parallel for
-  for (node_id_t node_id = 0; node_id < num_vertices; node_id++) {
+  for (node_id_t src = 0; src < num_vertices; src++) {
     // Go through dst of each src
-    for (auto& dst_update : adjlist[node_id]) {
+    for (auto& dst_update : adjlist[src]) {
       // Check if edge belongs to current graph_id
       if (dst_update.subgraph < graph_id) continue;
 
-      auto src = std::min(node_id, dst_update.dst);
-      auto dst = std::max(node_id, dst_update.dst);
-
       // Prevent duplicate edge getting added to other spanning forests
-      if (src > dst) continue;
+      if (src > dst_update.dst) continue;
 
       // Try to insert to spanning forests
       for (size_t k_id = 0; k_id < k; k_id++) {
         // Check if merge to DSU was successful
-        if (k_dsu[k_id].merge(src, dst).merged) {
+        if (k_dsu[k_id].merge(src, dst_update.dst).merged) {
           // this edge adds new connectivity information so add to spanning forest
           {
             std::lock_guard<std::mutex> lk(k_spanning_forest_mtxs[k_id][src]);
-            k_spanning_forests[k_id][src].insert(dst);
+            k_spanning_forests[k_id][src].insert(dst_update.dst);
           }
           break;
         }

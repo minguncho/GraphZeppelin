@@ -176,6 +176,7 @@ int main(int argc, char **argv) {
 
   // Getting sketch seed
   sketchParams.seed = get_seed();
+  std::cout << "Sketch Seed: " << sketchParams.seed << "\n";
   MCGPUSketchAlg mc_gpu_alg{num_vertices, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
     num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, use_edge_store, mc_config};
 

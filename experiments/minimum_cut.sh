@@ -76,7 +76,7 @@ do
         if [[ -v "num_batch_table[$stream_name]" ]] # Check if registered in table
         then 
           echo -n "yes, $stream_name, ${num_batch_table[$stream_name]}, " >> $out_file
-          ./min_cut $input $workers $readers no $eps ${num_batch_table[$stream_name]}
+          ./min_cut $input $workers $readers no $eps ${num_batch_table[$stream_name]} >> "$result_dir/output_${stream_name}.txt"
         else
           echo $stream_name " does not exist in num_batch_table"
         fi

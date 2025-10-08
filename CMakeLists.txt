@@ -254,6 +254,11 @@ if (BUILD_EXE)
   )
   target_link_libraries(stream_converter PRIVATE GraphZeppelin)
 
+  add_executable(convert_bipartite_graph
+    tools/converter/convert_bipartite_graph.cpp
+  )
+  target_link_libraries(convert_bipartite_graph PRIVATE GraphZeppelin)
+
   add_executable(stream_shuffler
     tools/others/stream_shuffler.cpp
   )

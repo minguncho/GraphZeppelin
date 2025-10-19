@@ -243,6 +243,11 @@ int main(int argc, char **argv) {
     }
     std::cout << "  Number of edges in spanning forests: " << SFs_edges.size() << "\n";
 
+    if (SFs_edges.size() == num_vertices * k) {
+      std::cout << "  Maximum size of spanning forests, skipping VieCut." << "\n";
+      continue;
+    }
+
     // now perform minimum cut computation
     auto viecut_start = std::chrono::steady_clock::now();
     MinCut mc = mc_gpu_alg.calc_minimum_cut(SFs_edges);

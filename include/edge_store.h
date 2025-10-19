@@ -4,8 +4,10 @@
 #include <iostream>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#include "dsu.h"
 #include "types.h"
 
 class EdgeStore {
@@ -35,6 +37,12 @@ class EdgeStore {
   // we have a single lock for each vertex and a lock for handling contraction logic
   std::mutex* adj_mutex;
   std::mutex contract_lock;
+
+  std::vector<DisjointSetUnion_MT<node_id_t>> k_dsu;
+  std::vector<std::unordered_set<node_id_t>*> k_spanning_forests;
+  std::vector<std::mutex*> k_spanning_forest_mtxs;
+
+  bool mincut_query_init = false;
 
   std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);
   void check_if_too_big();
@@ -71,4 +79,9 @@ class EdgeStore {
   size_t get_first_store_subgraph() { return cur_subgraph; }
   std::vector<Edge> get_edges();
   bool contract_in_progress() { return true_min_subgraph < cur_subgraph; }
+
+  // Functions for constructing k spanning forests
+  void set_up_mincut_query(size_t k);
+  void reset_mincut_query();
+  std::vector<std::unordered_set<node_id_t>*> calc_k_spanning_forests(size_t graph_id, size_t k);
 };

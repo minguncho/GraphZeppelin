@@ -10,8 +10,7 @@
 
 static bool cert_clean_up = false;
 static bool shutdown = false;
-static bool cudaUVM_enabled = true;
-constexpr double epsilon = 0.75;
+static bool cudaUVM_enabled = false;
 
 static double get_max_mem_used() {
   struct rusage data;
@@ -68,9 +67,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<MCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5 && argc != 6) {
+  if (argc != 6 && argc != 7) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads, inital_sketch_graphs, [num_batch_per_buffer]" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, eps, [num_batch_per_buffer]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -82,29 +81,40 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   int reader_threads = std::atoi(argv[3]);
-  int initial_sketch_graphs = std::atoi(argv[4]);
+  bool use_edge_store = true;
 
+  if (std::string(argv[4]) == "yes") {
+    use_edge_store = false;
+  } else if (std::string(argv[4]) == "no") {
+    use_edge_store = true;
+  } else {
+    std::cerr << "ERROR: Did not recognize argument = " << argv[4] << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  double epsilon = std::stod(argv[5]);
+  
   int num_batch_per_buffer = 540; // Default value of num_batch_per_buffer
-  if (argc == 6) {
-    num_batch_per_buffer = std::atoi(argv[5]);
+  if (argc == 7) {
+    num_batch_per_buffer = std::atoi(argv[6]);
   }
 
   BinaryFileStream stream(stream_file);
-  node_id_t num_nodes = stream.vertices();
+  node_id_t num_vertices = stream.vertices();
   size_t num_updates  = stream.edges();
   std::cout << "Processing stream: " << stream_file << std::endl;
-  std::cout << "nodes       = " << num_nodes << std::endl;
+  std::cout << "nodes       = " << num_vertices << std::endl;
   std::cout << "num_updates = " << num_updates << std::endl;
   std::cout << std::endl;
 
-  int k = ceil(log2(num_nodes) / (epsilon * epsilon));
-  double reduced_k = (k / log2(num_nodes)) * 1.5;
+  int k = ceil(log2(num_vertices) / (epsilon * epsilon));
+  double reduced_k = (k / log2(num_vertices)) * 1.5;
 
   std::cout << "epsilon: " << epsilon << std::endl;
   std::cout << "k: " << k << std::endl;
   std::cout << "reduced_k: " << reduced_k << std::endl;
 
-  int num_graphs = 1 + (int)(2 * log2(num_nodes));
+  int num_graphs = 1 + (int)(2 * log2(num_vertices));
   std::cout << "Total num_graphs: " << num_graphs << "\n";
 
   auto driver_config = DriverConfiguration().gutter_sys(CACHETREE).worker_threads(num_threads);
@@ -113,9 +123,9 @@ int main(int argc, char **argv) {
   // Get variables from sketch
   // (1) num_samples (2) num_columns (3) bkt_per_col (4) num_buckets
   SketchParams sketchParams;
-  sketchParams.num_samples = Sketch::calc_cc_samples(num_nodes, reduced_k);
+  sketchParams.num_samples = Sketch::calc_cc_samples(num_vertices, reduced_k);
   sketchParams.num_columns = sketchParams.num_samples * Sketch::default_cols_per_sample;
-  sketchParams.bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_nodes));
+  sketchParams.bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_vertices));
   sketchParams.num_buckets = sketchParams.num_columns * sketchParams.bkt_per_col + 1;
 
   std::cout << "num_samples: " << sketchParams.num_samples << "\n";
@@ -124,14 +134,14 @@ int main(int argc, char **argv) {
   std::cout << "bkt_per_col: " << sketchParams.bkt_per_col << "\n"; 
 
   // Total bytes of sketching datastructure of one subgraph
-  int w = 4; // 4 bytes when num_nodes < 2^32
-  double sketch_bytes = 4 * w * num_nodes * ((2 * log2(num_nodes)) + 2) * ((reduced_k * log2(num_nodes))/(1 - log2(1.2)));
+  int w = 4; // 4 bytes when num_vertices < 2^32
+  double sketch_bytes = 4 * w * num_vertices * ((2 * log2(num_vertices)) + 2) * ((reduced_k * log2(num_vertices))/(1 - log2(1.2)));
   double adjlist_edge_bytes = 8;
 
   std::cout << "Total bytes of sketching data structure of one subgraph: " << sketch_bytes / 1000000000 << "GB\n";
 
   // Calculate number of minimum adj. list subgraph
-  size_t num_edges_complete = (size_t(num_nodes) * (size_t(num_nodes) - 1)) / 2;
+  size_t num_edges_complete = (size_t(num_vertices) * (size_t(num_vertices) - 1)) / 2;
   int num_sketch_graphs = 0;
   int max_sketch_graphs = 0;
 
@@ -145,17 +155,18 @@ int main(int argc, char **argv) {
     }
   }
 
+  if (!use_edge_store) {
+    // without the edge store we need a loooooot of sketches
+    max_sketch_graphs = 2 * log2(num_vertices);
+  }
+
   // Total number of estimated edges of minimum number of adj. list graphs
-  size_t num_est_edges_adj_graphs = (2 * num_edges_complete) / (1 << (max_sketch_graphs));
-  double total_adjlist_bytes = adjlist_edge_bytes * num_est_edges_adj_graphs;
   double total_sketch_bytes = sketch_bytes * max_sketch_graphs;
 
   std::cout << "Number of sketch graphs: " << num_sketch_graphs << "\n";
-  std::cout << "  If complete graph with current num_nodes..." << "\n";
+  std::cout << "  If complete graph with current num_vertices..." << "\n";
   std::cout << "    Maximum number of sketch graphs: " << max_sketch_graphs << "\n";
-  std::cout << "    Total minimum memory required for minimum number of adj. list graphs: " << total_adjlist_bytes / 1000000000 << "GB\n";
   std::cout << "    Total minimum memory required for maximum number of sketch graphs: " << total_sketch_bytes / 1000000000 << "GB\n";
-  std::cout << "    Total minimum memory required for current num_nodes: " << (total_adjlist_bytes + total_sketch_bytes) / 1000000000 << "GB\n";
 
   // Reconfigure sketches_factor based on reduced_k
   mc_config.sketches_factor(reduced_k);
@@ -165,8 +176,9 @@ int main(int argc, char **argv) {
 
   // Getting sketch seed
   sketchParams.seed = get_seed();
-  MCGPUSketchAlg mc_gpu_alg{num_nodes, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
-    num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, initial_sketch_graphs, mc_config};
+  std::cout << "Sketch Seed: " << sketchParams.seed << "\n";
+  MCGPUSketchAlg mc_gpu_alg{num_vertices, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
+    num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, use_edge_store, mc_config};
 
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};
 
@@ -201,33 +213,35 @@ int main(int argc, char **argv) {
   |                                                                    |
   \********************************************************************/
 
+  auto query_start = std::chrono::steady_clock::now();
   // Get spanning forests then create a METIS format file
   std::cout << "Generating Certificates...\n";
   int num_sampled_zero_graphs = 0;
+  int final_mincut_value = 0;
   for (int graph_id = 0; graph_id < num_graphs; graph_id++) {
+    std::vector<SpanningForest> SFs;
     std::vector<Edge> SFs_edges;
-    std::set<Edge> edges;
 
     if (graph_id >= num_sketch_graphs) { // Get Spanning forests from adj list
       std::cout << "S" << graph_id << " (Adj. list):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
-      SFs_edges = mc_gpu_alg.get_adjlist_spanning_forests();
+      SFs = mc_gpu_alg.get_adjlist_spanning_forests(graph_id, k);
       sampling_forests_adj_time += std::chrono::steady_clock::now() - sampling_forests_start;
     } 
     else { // Get Spanning forests from sketch subgraph
       std::cout << "S" << graph_id << " (Sketch):\n";
       auto sampling_forests_start = std::chrono::steady_clock::now();
-      auto sfs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id, k);
+      SFs = mc_gpu_alg.calc_disjoint_spanning_forests(graph_id, k);
       sampling_forests_sketch_time += std::chrono::steady_clock::now() - sampling_forests_start;
-
-      std::cerr << "Query done" << std::endl;
-      for (const auto &sf : sfs) {
-        for (auto edge : sf.get_edges()) {
-          SFs_edges.push_back(edge);
-        }
-      }
-      std::cout << "  Number of edges in spanning forests: " << SFs_edges.size() << "\n";
     }
+    
+    std::cerr << "Query done" << std::endl;
+    for (const auto &sf : SFs) {
+      for (auto edge : sf.get_edges()) {
+        SFs_edges.push_back(edge);
+      }
+    }
+    std::cout << "  Number of edges in spanning forests: " << SFs_edges.size() << "\n";
 
     // now perform minimum cut computation
     auto viecut_start = std::chrono::steady_clock::now();
@@ -240,12 +254,10 @@ int main(int argc, char **argv) {
       std::cout << "  S" << graph_id << " (Sketch): " << mc.value << "\n";
     }
 
-    if (graph_id >= num_sketch_graphs || mc.value < k) {
-      // we return the adjacency answer regardless of its value
-      // This works under the assumption that all the previous sketched min cuts were invalid
-      // Otherwise, if a sketched subgraph returns a value < k, we use that
+    if (mc.value < k) {
       std::cout << "Mincut found in graph: " << graph_id << " mincut: " << mc.value << std::endl;
       std::cout << "Final mincut value: " << (mc.value * (pow(2, graph_id))) << std::endl;
+      final_mincut_value = mc.value * (pow(2, graph_id));
       break;
     }
   }
@@ -257,22 +269,25 @@ int main(int argc, char **argv) {
 
   std::chrono::duration<double> insert_time = flush_end - ins_start;
   std::chrono::duration<double> flush_time = flush_end - flush_start;
-  std::chrono::duration<double> query_time = query_end - flush_start;
+  std::chrono::duration<double> query_time = query_end - query_start;
+
+  double memory = get_max_mem_used();
 
   double num_seconds = insert_time.count();
   std::cout << "Insertion time(sec): " << num_seconds << std::endl;
   std::cout << "  Updates per second: " << stream.edges() / num_seconds << std::endl;
-  std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "  Flush Gutters + GPU Buffers(sec): " << flush_time.count() << std::endl;
+  std::cout << "Total Query Latency(sec): " << query_time.count() << std::endl;
   std::cout << "  K-Connectivity: (Sketch Subgraphs)" << std::endl;
   std::cout << "    Sampling Forests Time(sec): " << sampling_forests_sketch_time.count() + sampling_forests_adj_time.count() << std::endl;
   std::cout << "      From Sketch Subgraphs(sec): " << sampling_forests_sketch_time.count() << std::endl;
   std::cout << "      From Adj. list(sec): " << sampling_forests_adj_time.count() << std::endl;
   std::cout << "  VieCut Program Time(sec): " << viecut_time.count() << std::endl;
-  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
+  std::cout << "Maximum Memory Usage(MiB): " << memory << std::endl;
 
-  std::ofstream out("runtime_results.txt", std::ios_base::out | std::ios_base::app);
+  std::ofstream out("runtime_results.csv", std::ios_base::out | std::ios_base::app);
   out << std::fixed;
   out << std::setprecision(3);
-  out << num_threads << ", " << stream.edges() / num_seconds << std::endl;
+  out << stream.edges() / num_seconds / 1e6 << ", " << memory << ", " << query_time.count() 
+      << ", " << final_mincut_value << std::endl;
 }

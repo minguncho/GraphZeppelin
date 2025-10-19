@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
@@ -60,7 +61,7 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
 }
 
 void SketchSubgraph::batch_insert(int thr_id, const node_id_t src,
-                                  const std::array<node_id_t, 16> dsts, const size_t num_elms) {
+                                  const std::array<node_id_t, 32> dsts, const size_t num_elms) {
   auto &gutter = subgraph_gutters[src];
   std::lock_guard<std::mutex> lk(gutter_locks[src]);
 
@@ -108,9 +109,9 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
 
-  std::vector<std::array<node_id_t, 16>> subgraph_buffers;
+  std::vector<std::array<node_id_t, 32>> subgraph_buffers;
   subgraph_buffers.resize(first_es_subgraph);
-  std::array<size_t, 16> buffer_sizes;
+  std::array<size_t, 32> buffer_sizes;
   buffer_sizes.fill(0);
 
   // put data into local buffers and when full move into subgraph's gutters
@@ -120,7 +121,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
     for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
       subgraph_buffers[graph_id][buffer_sizes[graph_id]++] = dst_data.dst;
-      if (buffer_sizes[graph_id] >= 16) {
+      if (buffer_sizes[graph_id] >= 32) {
         subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[graph_id],
                                          buffer_sizes[graph_id]);
         buffer_sizes[graph_id] = 0;
@@ -204,6 +205,15 @@ void MCGPUSketchAlg::apply_flush_updates() {
   cudaDeviceSynchronize();
 }
 
-std::vector<Edge> MCGPUSketchAlg::get_adjlist_spanning_forests() {
-  return edge_store.get_edges();
+std::vector<SpanningForest> MCGPUSketchAlg::get_adjlist_spanning_forests(size_t graph_id, size_t k) {
+  std::vector<SpanningForest> SFs;
+
+  auto spanning_forests = edge_store.calc_k_spanning_forests(graph_id, k);
+
+  for (size_t k_id = 0; k_id < k; k_id++) {
+    SpanningForest ret(num_nodes, spanning_forests[k_id]);
+    SFs.push_back(ret);
+  }  
+
+  return SFs;
 }

@@ -36,6 +36,17 @@ declare -A num_batch_table=(
   [rec_amazon_stream_binary]=216
   [web_uk_stream_binary]=216)
 
+declare -A exact_mc_value=(
+  [kron_13_stream_binary]=5
+  [kron_15_stream_binary]=50
+  [kron_16_stream_binary]=200
+  [kron_17_stream_binary]=500
+  [ktree_13_2048_stream_binary_shuffled]=2048
+  [ktree_14_4096_stream_binary_shuffled]=4096
+  [ktree_15_8192_stream_binary_shuffled]=8192
+  [ktree_16_16384_stream_binary_shuffled]=16384
+  [ktree_17_32768_stream_binary_shuffled]=32768)
+
 result_dir=$1
 workers=$2
 readers=$3
@@ -51,7 +62,9 @@ cd build
 
 out_file=runtime_results.csv
 
-eps_val=(1.0 0.9 0.8 0.7 0.6 0.5 0.4)
+#eps_val=(1.0 0.9 0.8 0.7 0.6 0.5 0.4)
+#eps_val=(0.9 0.8 0.7 0.6 0.5 0.4)
+eps_val=(0.7 0.5 0.4)
 
 # Note Message for GPU performance
 echo "Note: To ensure the best performance for GPU, make sure to maximize its clock speed by ./nvidia-smi -lgc [CLOCK_SPEED]"
@@ -76,7 +89,12 @@ do
         if [[ -v "num_batch_table[$stream_name]" ]] # Check if registered in table
         then 
           echo -n "yes, $stream_name, ${num_batch_table[$stream_name]}, " >> $out_file
-          ./min_cut $input $workers $readers no $eps ${num_batch_table[$stream_name]} >> "$result_dir/output_${stream_name}.txt"
+          if [[ -v "exact_mc_value[$stream_name]" ]]
+          then
+            ./min_cut $input $workers $readers no $eps ${exact_mc_value[$stream_name]} ${num_batch_table[$stream_name]} >> "$result_dir/output_${stream_name}.txt"
+          else
+            ./min_cut $input $workers $readers no $eps 0 ${num_batch_table[$stream_name]} >> "$result_dir/output_${stream_name}.txt"
+          fi
         else
           echo $stream_name " does not exist in num_batch_table"
         fi
@@ -89,4 +107,4 @@ do
 done
 
 cd -
-mv build/$out_file $result_dir/mc.csv
+mv build/$out_file $result_dir/mc_ktree.csv

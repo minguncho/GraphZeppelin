@@ -67,9 +67,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<MCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 6 && argc != 7) {
+  if (argc != 7 && argc != 8) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, eps, [num_batch_per_buffer]" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, eps, exact_mc_value, [num_batch_per_buffer]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -93,10 +93,12 @@ int main(int argc, char **argv) {
   }
 
   double epsilon = std::stod(argv[5]);
+  int exact_mc_value = std::atoi(argv[6]);
+  std::cout << "Exact mincut value: " << exact_mc_value << "\n";
   
   int num_batch_per_buffer = 540; // Default value of num_batch_per_buffer
-  if (argc == 7) {
-    num_batch_per_buffer = std::atoi(argv[6]);
+  if (argc == 8) {
+    num_batch_per_buffer = std::atoi(argv[7]);
   }
 
   BinaryFileStream stream(stream_file);
@@ -107,7 +109,8 @@ int main(int argc, char **argv) {
   std::cout << "num_updates = " << num_updates << std::endl;
   std::cout << std::endl;
 
-  int k = ceil(log2(num_vertices) / (epsilon * epsilon));
+  double k_factor = 1.5;
+  int k = ceil((log2(num_vertices) / (epsilon * epsilon)) * k_factor);
   double reduced_k = (k / log2(num_vertices)) * 1.5;
 
   std::cout << "epsilon: " << epsilon << std::endl;
@@ -263,6 +266,10 @@ int main(int argc, char **argv) {
       std::cout << "Mincut found in graph: " << graph_id << " mincut: " << mc.value << std::endl;
       std::cout << "Final mincut value: " << (mc.value * (pow(2, graph_id))) << std::endl;
       final_mincut_value = mc.value * (pow(2, graph_id));
+
+      if ((final_mincut_value < ((double)exact_mc_value - (exact_mc_value * epsilon))) || (final_mincut_value > ((double)exact_mc_value + (exact_mc_value * epsilon)))) {
+        std::cout << "Mincut value out of range!\n";
+      }
       break;
     }
   }

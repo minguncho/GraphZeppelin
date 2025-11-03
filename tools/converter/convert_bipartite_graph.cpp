@@ -8,9 +8,16 @@
 #include <iostream>
 #include <unordered_set>
 #include <omp.h>
+#include <sys/resource.h>
 
 #include "binary_file_stream.h"
 #include "util.h"
+
+static double get_max_mem_used() {
+  struct rusage data;
+  getrusage(RUSAGE_SELF, &data);
+  return (double) data.ru_maxrss / 1024.0;
+}
 
 struct Subreddit {
   std::unordered_set<node_id_t> user_ids;
@@ -69,7 +76,7 @@ Interactions parse_file(std::string filename) {
 
 std::vector<size_t> collect_edges(Interactions interactions) {
   int num_threads = omp_get_max_threads();
-  std::vector<std::unordered_set<size_t>> local_edges(num_threads);
+  std::vector<std::vector<size_t>> local_edges(num_threads);
 
   std::cout << "collect_edges() num_threads: " << num_threads << std::endl;
 
@@ -89,13 +96,14 @@ std::vector<size_t> collect_edges(Interactions interactions) {
         for (; j != subreddit.user_ids.end(); j++) {
           node_id_t src = *i;
           node_id_t dst = *j;
-          edges.insert(concat_pairing_fn(src, dst));
+          edges.push_back(concat_pairing_fn(src, dst));
         }
       }
     }
   }
 
   std::cout << "collected_edges() Finished getting local_edges" << std::endl;
+  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 
   size_t global_num_edges = 0;
   for (auto& local : local_edges) {
@@ -179,12 +187,14 @@ int main(int argc, char** argv) {
 
   std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timer_start;
   std::cout << "Finished parsing input file: " << duration.count() << "s " <<  std::endl;
+  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 
   timer_start = std::chrono::steady_clock::now();
   std::vector<size_t> edges = collect_edges(interactions);
 
   duration = std::chrono::steady_clock::now() - timer_start;
   std::cout << "Finished collecting edges: " << duration.count() << "s " <<  std::endl;
+  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 
   size_t num_nodes = interactions.num_users; 
 	size_t num_edges = edges.size();
@@ -199,10 +209,12 @@ int main(int argc, char** argv) {
 
   duration = std::chrono::steady_clock::now() - timer_start;
   std::cout << "Finished shuffling edges: " << duration.count() << "s " <<  std::endl;
+  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 
   timer_start = std::chrono::steady_clock::now();
   build_graph_stream(filename, edges, num_nodes, num_edges);
 
   duration = std::chrono::steady_clock::now() - timer_start;
   std::cout << "Finished converting to binary stream: " << duration.count() << "s " <<  std::endl;
+  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 }

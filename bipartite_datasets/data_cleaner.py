@@ -2,6 +2,9 @@ import json
 import os
 import sys
 
+# Used for cleaning up the json file of Kaggle Reddit Dataset
+# https://www.kaggle.com/datasets/nbdnbd/reddit-dataset
+
 f_name = sys.argv[1]
 with open(f_name) as f:
   # Dictionary for holding user_id and subreddit

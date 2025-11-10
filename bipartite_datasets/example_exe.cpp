@@ -114,14 +114,14 @@ void estimate_density(Eigen::SparseMatrix<int, Eigen::ColMajor, long long int> b
   double mean = sum / (static_cast<double>(cols));
   printf("mean subreddit degree is %f over %lld columns\n", mean, cols);
   
-  long int edge_upper_bound = 0;
+  size_t edge_upper_bound = 0;
   int counter = 0;
   for (double i : result) {
     // if (display && counter%1000==0) {
     //   printf("check 1 %ld\n", edge_upper_bound);
     // }
-    int degree = static_cast<int>(i);
-    int clique_size = (degree * (degree-1))/2;
+    size_t degree = static_cast<int>(i);
+    size_t clique_size = (degree * (degree-1))/2;
     edge_upper_bound += clique_size;
     // if (display && counter%1000==0) {
     //   printf("clique size %d, check 2 %ld\n", clique_size, edge_upper_bound);

@@ -75,50 +75,54 @@ Interactions parse_file(std::string filename) {
 };
 
 std::vector<size_t> collect_edges(Interactions interactions) {
-  int num_threads = omp_get_max_threads();
-  std::vector<std::vector<size_t>> local_edges(num_threads);
+  std::cout << "collect_edges() num_threads: " << omp_get_max_threads() << std::endl;
 
-  std::cout << "collect_edges() num_threads: " << num_threads << std::endl;
+  std::vector<size_t> global_edges;
+  std::vector<size_t> offsets;
 
-  #pragma omp parallel
-  {
-    int tid = omp_get_thread_num();
-    auto& edges = local_edges[tid];
+  size_t global_num_edges = 0;
+  for (auto& subreddit : interactions.subreddit_ids) {
+    size_t num_users = subreddit.user_ids.size();
+    offsets.push_back(global_num_edges);
+    global_num_edges += (num_users * (num_users - 1)) / 2;
+  }
+  // Reserve memory and set all values to 0
+  global_edges.resize(global_num_edges, 0);
 
-    #pragma omp for schedule(dynamic)
-    for (size_t s_id = 0; s_id < interactions.subreddit_ids.size(); s_id++) {
-      if (s_id % 1000 == 0) std::cout << "collected_edges() s_id: " << s_id << std::endl;
+  #pragma omp for schedule(dynamic)
+  for (size_t s_id = 0; s_id < interactions.subreddit_ids.size(); s_id++) {
+    if (s_id % 1000 == 0) std::cout << "collected_edges() s_id: " << s_id << std::endl;
 
-      Subreddit subreddit = interactions.subreddit_ids[s_id];
-      for (auto i = subreddit.user_ids.begin(); i != subreddit.user_ids.end(); i++) {
-        auto j = i;
-        j++;
-        for (; j != subreddit.user_ids.end(); j++) {
-          node_id_t src = *i;
-          node_id_t dst = *j;
-          edges.push_back(concat_pairing_fn(src, dst));
-        }
+    size_t offset = offsets[s_id];
+
+    Subreddit subreddit = interactions.subreddit_ids[s_id];
+    size_t edge_id = 0;
+    for (auto i = subreddit.user_ids.begin(); i != subreddit.user_ids.end(); i++) {
+      auto j = i;
+      j++;
+      for (; j != subreddit.user_ids.end(); j++) {
+        node_id_t src = *i;
+        node_id_t dst = *j;
+        global_edges[offset + edge_id] = concat_pairing_fn(src, dst);
+        edge_id++;
       }
     }
   }
+  
+  // Sort to remove any duplicates
+  std::sort(global_edges.begin(), global_edges.end());
 
-  std::cout << "collected_edges() Finished getting local_edges" << std::endl;
-  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
-
-  size_t global_num_edges = 0;
-  for (auto& local : local_edges) {
-    global_num_edges += local.size();
+  // Check if there's any edge 0 (did not get filled in)
+  for (auto& edge : global_edges) {
+    if (edge == 0) {
+      std::cout << "ERROR: Found edge 0 during collect_edges!" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    // No edge 0 found, can exit
+    if (edge > 0) break;
   }
 
-  std::vector<size_t> global_edges;
-  global_edges.reserve(global_num_edges);
-
-  // Insert edges
-  for (auto& local : local_edges)
-    global_edges.insert(global_edges.end(), local.begin(), local.end());
-
-  // Remove any duplicate edges
-  std::sort(global_edges.begin(), global_edges.end());
+  // Remove duplicates
   global_edges.erase(std::unique(global_edges.begin(), global_edges.end()), global_edges.end());
 
   std::cout << "Total number of edges collected: " << global_num_edges << std::endl;

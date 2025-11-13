@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <omp.h>
 #include <sys/resource.h>
+#include <random>
 
 #include "binary_file_stream.h"
 #include "util.h"
@@ -128,6 +129,17 @@ std::vector<size_t> collect_edges(Interactions interactions) {
   std::cout << "Total number of edges collected: " << global_num_edges << std::endl;
   std::cout << "Size of global_edges: " << global_edges.size() 
             << ". Duplicate edges: " << global_num_edges - global_edges.size() << std::endl;
+
+  std::cout << "Shuffling edges...\n";
+
+  // seed = 0
+  std::default_random_engine e(0);
+
+  auto stream_shuffle_start = std::chrono::steady_clock::now();
+  std::shuffle(global_edges.begin(), global_edges.end(), e);
+  auto stream_shuffle_end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> stream_shuffle_time = stream_shuffle_end - stream_shuffle_start;
+  std::cout << "Shuffling time (sec): " << stream_shuffle_time.count() << "\n";
 
   return global_edges;
 }

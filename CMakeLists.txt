@@ -263,6 +263,11 @@ if (BUILD_EXE)
     tools/others/stream_shuffler.cpp
   )
   target_link_libraries(stream_shuffler PRIVATE GraphZeppelin)
+
+  add_executable(mincut_estimator
+    tools/others/mincut_estimator.cpp
+  )
+  target_link_libraries(mincut_estimator PRIVATE GraphZeppelin)
 endif()
 
 if (BUILD_BENCH)

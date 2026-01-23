@@ -8,6 +8,7 @@
 #include <omp.h>
 #include <unordered_map>
 
+#include <common/configuration.h>
 #include <algorithms/global_mincut/algorithms.h>
 #include <algorithms/global_mincut/minimum_cut.h>
 #include <data_structure/graph_access.h>
@@ -960,9 +961,11 @@ bool MCSketchAlg::point_query(node_id_t a, node_id_t b) {
   return retval;
 }
 
-MinCut MCSketchAlg::calc_minimum_cut(const std::vector<Edge> &edges) {
+MinCut MCSketchAlg::calc_minimum_cut(const std::vector<Edge> &edges, const bool save_cut) {
   typedef VieCut::mutable_graph Graph;
   typedef std::shared_ptr<VieCut::mutable_graph> GraphPtr;
+
+  VieCut::configuration::getConfig()->save_cut = save_cut;
 
   // Create a VieCut graph
   GraphPtr G = std::make_shared<Graph>();

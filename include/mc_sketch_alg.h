@@ -273,7 +273,7 @@ class MCSketchAlg {
   std::vector<SpanningForest> calc_disjoint_spanning_forests(size_t graph_id, size_t k);
 
   // compute the minimum cut of the graph defined by the input stream
-  MinCut calc_minimum_cut(const std::vector<Edge> &edges);
+  MinCut calc_minimum_cut(const std::vector<Edge> &edges, const bool save_cut);
 
 #ifdef VERIFY_SAMPLES_F
   void set_verifier(std::unique_ptr<GraphVerifier> verifier) {

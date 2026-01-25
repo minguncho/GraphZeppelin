@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <sys/resource.h> // for rusage
 #include <mutex>
+#include <omp.h>
 
 #include "bucket.h"
 #include "dsu.h"
@@ -33,7 +34,6 @@ static double get_max_mem_used() {
   getrusage(RUSAGE_SELF, &data);
   return (double) data.ru_maxrss / 1024.0;
 }
-
 
 MinCut standalone_calc_minimum_cut(node_id_t num_vertices, const std::vector<Edge> &edges) {
   typedef VieCut::mutable_graph Graph;
@@ -73,6 +73,48 @@ MinCut standalone_calc_minimum_cut(node_id_t num_vertices, const std::vector<Edg
   return {left, right, cut};
 }
 
+void init_subgraph(int graph_id, int k, node_id_t num_vertices, 
+                   std::vector<std::vector<DisjointSetUnion_MT<node_id_t>>> &subgraph_dsus,
+                   std::vector<std::vector<std::vector<node_id_t>*>> &subgraph_k_spanning_forests,
+                   std::vector<std::vector<std::mutex*>> &subgraph_mtxs) {
+
+  std::vector<DisjointSetUnion_MT<node_id_t>> dsu;
+  std::vector<std::vector<node_id_t>*> k_spanning_forests;
+  std::vector<std::mutex*> mtxs;
+
+  for (int k_id = 0; k_id < k; k_id++) {
+    dsu.push_back(DisjointSetUnion_MT(num_vertices));
+    k_spanning_forests.push_back(new std::vector<node_id_t>[num_vertices]);
+    mtxs.push_back(new std::mutex[num_vertices]);
+  }
+
+  subgraph_dsus[graph_id] = dsu;
+  subgraph_k_spanning_forests[graph_id] = k_spanning_forests;
+  subgraph_mtxs[graph_id] = mtxs;
+
+  std::cout << "    + Initialized subgraph #" << graph_id << std::endl;
+}
+
+void delete_subgraph(int graph_id,
+                     std::vector<std::vector<DisjointSetUnion_MT<node_id_t>>> &subgraph_dsus,
+                     std::vector<std::vector<std::vector<node_id_t>*>> &subgraph_k_spanning_forests,
+                     std::vector<std::vector<std::mutex*>> &subgraph_mtxs) {
+
+  subgraph_dsus[graph_id].clear();
+
+  for (auto* forest_ptr : subgraph_k_spanning_forests[graph_id]) {
+    delete[] forest_ptr; 
+  }
+  subgraph_k_spanning_forests[graph_id].clear();
+
+  for (auto* mtx_ptr : subgraph_mtxs[graph_id]) {
+    delete[] mtx_ptr;
+  }
+  subgraph_mtxs[graph_id].clear();
+
+  std::cout << "    - Deleted subgraph #" << graph_id << std::endl;
+}
+
 int main(int argc, char **argv) {
   if (argc != 3) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
@@ -98,65 +140,75 @@ int main(int argc, char **argv) {
   size_t sketch_seed = 0;
   std::cout << "Sketch Seed: " << sketch_seed << std::endl;
 
-  // Compute max id for checking subgraphs (size of subgraph is less than its max k spanning forests)
-  int max_subgraph_id = 0;
- 
+  // Counters for keeping the currrent min and max subgraph id
+  int cur_min_subgraph_id = 0; // Increment when delete subgraph
+  std::atomic<int> cur_max_subgraph_id = 0; // Increment when add a new subgraph
+
+  // Compute number of full subgraphs (size of subgraph is less than its max k spanning forests)
+  int num_full_subgraphs = 0;
+
   for (int k_id = 0; k_id < k; k_id++) {
-    size_t max_sf_size = size_t(k) * size_t(num_vertices);
-    size_t num_est_edges = num_updates / (1 << k_id);
+    size_t max_sf_size = (size_t(k) * size_t(num_vertices)) - size_t(k);
+    size_t num_est_edges = (num_updates / (1 << k_id));
 
     if (num_est_edges < max_sf_size) {
-      max_subgraph_id = k_id;
+      num_full_subgraphs = k_id + 1;
       break;
     }
-  }
-  // Note: To save space, only maintaining max_subgraph_id number of subgraphs 
-  std::cout << "Max subgraph id that can have full spanning forests: " << max_subgraph_id << std::endl;
-
-  // Setup subgraphs
-  std::vector<std::vector<DisjointSetUnion_MT<node_id_t>>> subgraph_dsus;
-  std::vector<std::vector<std::vector<node_id_t>*>> subgraph_k_spanning_forests;
-  std::vector<std::vector<std::mutex*>> subgraph_mtxs;
-
-  for (int graph_id = 0; graph_id <= max_subgraph_id; graph_id++) {
-    std::vector<DisjointSetUnion_MT<node_id_t>> dsu;
-    std::vector<std::vector<node_id_t>*> k_spanning_forests;
-    std::vector<std::mutex*> mtxs;
-
-    for (int k_id = 0; k_id < k; k_id++) {
-      dsu.push_back(DisjointSetUnion_MT(num_vertices));
-      k_spanning_forests.push_back(new std::vector<node_id_t>[num_vertices]);
-      mtxs.push_back(new std::mutex[num_vertices]);
-    }
-
-    subgraph_dsus.push_back(dsu);
-    subgraph_k_spanning_forests.push_back(k_spanning_forests);
-    subgraph_mtxs.push_back(mtxs);
+    
+    cur_min_subgraph_id = k_id;
+    cur_max_subgraph_id = k_id;
   }
 
-  std::cout << "Finished initiailizing subgraphs\n";
-  std::cout << "  Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
+  // cur_min_subgraph_id is id before subgraph gets fewer edges than full DSU
+  // just to be safe, start one id before
+  cur_min_subgraph_id--;
+  cur_max_subgraph_id--;
+
+  // num_full_subgraphs serve as a maximum number of disjoint set to maintain
+  std::cout << "Number of subgraphs that can have full spanning forests: " << num_full_subgraphs << std::endl;
+  std::cout << "Starting subgraph ID: " << cur_min_subgraph_id << std::endl;
+
+  // Main data structure: DSUs and k spanning forests for each subgraph
+  std::vector<std::vector<DisjointSetUnion_MT<node_id_t>>> subgraph_dsus(num_full_subgraphs);
+  std::vector<std::vector<std::vector<node_id_t>*>> subgraph_k_spanning_forests(num_full_subgraphs);
+  std::vector<std::vector<std::mutex*>> subgraph_mtxs(num_full_subgraphs);
+
+  // Initialize first subgraph
+  init_subgraph(cur_min_subgraph_id, k, num_vertices, subgraph_dsus, subgraph_k_spanning_forests, subgraph_mtxs);
+
+  // For maintaining safe initialization of new subgraph
+  std::vector<std::mutex> subgraph_init_mtxs(num_full_subgraphs);
+  std::vector<std::atomic<bool>> subgraph_init_flag(num_full_subgraphs);
+
+  for (auto& flag : subgraph_init_flag) {
+    flag = false;
+  }
+
+  int num_threads = omp_get_max_threads();
+  std::cout << "Number of CPU threads: " << num_threads << std::endl;
+  std::vector<std::chrono::duration<double>> threads_merge_time(num_threads);
+
+  for (int tid = 0; tid < num_threads; tid++) {
+    threads_merge_time[tid] = std::chrono::nanoseconds::zero();
+  }
 
   // Prepare for collecting edges from binary stream
   GraphStreamUpdate update_array[update_array_size];
   std::atomic<bool> read_complete = false;
-  size_t total_read_updates = 0;
 
   std::vector<std::atomic<size_t>> subgraph_num_edges(k);
 
   auto timer_start = std::chrono::steady_clock::now();
+  size_t num_read_updates = 0;
   std::cout << "Collecting edges...\n";
   while (!read_complete) {
     size_t updates = stream.get_update_buffer(update_array, update_array_size);
 
-    /*total_read_updates += updates;
-    if (total_read_updates % 10000000 == 0) {
-      std::cout << "  Progress: " << total_read_updates << "\n";
-      std::cout << "Size of subgraphs:" << std::endl;
-      for (int graph_id = 0; graph_id <= max_subgraph_id; graph_id++) {
-        std::cout << "  G_" << graph_id << ": " << subgraph_num_edges[graph_id] << std::endl;
-      }
-    }*/
+    num_read_updates += updates;
+    if (num_read_updates % 1000000000 == 0) {
+      std::cout << "  Processed updates: " << num_read_updates << std::endl;
+    }
 
     #pragma omp parallel for
     for (size_t i = 0; i < updates; i++) {
@@ -166,11 +218,8 @@ int main(int argc, char **argv) {
       upd.edge = update_array[i].edge;
       upd.type = static_cast<UpdateType>(update_array[i].type);
 
-      // Only handle edges with src < dst
-      if (upd.edge.src > upd.edge.dst) continue;
-
       if (upd.type == BREAKPOINT) {
-        read_complete = true;
+        read_complete = true; // Finished reading the entire stream
       }
       else {
         // Determine the depth of current edge
@@ -178,13 +227,29 @@ int main(int argc, char **argv) {
         int subgraph = Bucket_Boruvka::get_index_depth(edge_id, sketch_seed, k-1);
 
         for (int graph_id = 0; graph_id <= subgraph; graph_id++) {
-          // If current subgraph's spanning forests are full, skip
-          if (subgraph_num_edges[graph_id] == ((k * num_vertices) - k)) continue;
+          // Trying to add to previously existed subgraph, skip
+          if (graph_id < cur_min_subgraph_id) continue;
 
-          // Graph id going out of bounds, skip
-          if (graph_id > max_subgraph_id) continue;
+          if (graph_id > cur_max_subgraph_id) {
+            // If trying to go over hard maximum, break.
+            if (graph_id >= num_full_subgraphs) break;
 
-          // Attempt to insert to k spanning forests
+            // In bound, just need to initialize a new subgraph
+            if (!subgraph_init_flag[graph_id]) {
+              std::lock_guard<std::mutex> lk(subgraph_init_mtxs[graph_id]);
+              {
+                // Check if current subgraph has already been initialized
+                if (!subgraph_init_flag[graph_id]) {
+                  init_subgraph(graph_id, k, num_vertices, subgraph_dsus, subgraph_k_spanning_forests, subgraph_mtxs);
+                  cur_max_subgraph_id++;
+                  subgraph_init_flag[graph_id] = true;
+                }
+              }
+            }
+          }
+
+          // Within bound, make an attempt to insert to DSUs.
+          auto merge_start = std::chrono::steady_clock::now();
           bool merged = false;
           for (int k_id = 0; k_id < k; k_id++) {
             if (merged) continue;
@@ -197,16 +262,16 @@ int main(int argc, char **argv) {
               merged = true;
             }
           }
+          threads_merge_time[omp_get_thread_num()] += (std::chrono::steady_clock::now() - merge_start);
         }
+      }
+    }
 
-        // Only exit if (1) Went through all the edge stream, or (2) k spanning forests for all subgraphs are full
-        int num_full = 0;
-        for (int graph_id = 0; graph_id <= max_subgraph_id; graph_id++) {
-          if (subgraph_num_edges[graph_id] == ((k * num_vertices) - k)) num_full++;
-        }
-        if (num_full == max_subgraph_id + 1) {
-          read_complete = true;
-        }
+    // Check for sizes of each subgraph, if full, delete
+    for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
+      if (subgraph_num_edges[graph_id] == ((k * num_vertices) - k)) {
+        delete_subgraph(graph_id, subgraph_dsus, subgraph_k_spanning_forests, subgraph_mtxs);
+        cur_min_subgraph_id++;
       }
     }
   }
@@ -215,17 +280,19 @@ int main(int argc, char **argv) {
   std::cout << "  Duration: " << duration.count() << "s\n";
   std::cout << "  Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 
-  std::cout << "Size of subgraphs:" << std::endl;
-  for (int graph_id = 0; graph_id <= max_subgraph_id; graph_id++) {
+  std::cout << "Printing merge time:" << std::endl;
+
+  for (int tid = 0; tid < num_threads; tid++) {
+    std::cout << "  T" << tid << ": " << threads_merge_time[tid].count() << "s" << std::endl;
+  }
+
+  std::cout << "Sizes of currently maintaining subgraphs:" << std::endl;
+  for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
     std::cout << "  G_" << graph_id << ": " << subgraph_num_edges[graph_id] << std::endl;
   }
 
   std::cout << "Computing minimum cut:" << std::endl;
-  for (int graph_id = 0; graph_id <= max_subgraph_id; graph_id++) {
-    if (subgraph_num_edges[graph_id] == ((k * num_vertices) - k)) {
-      std::cout << "  G_" << graph_id << ": Full k spanning forests, skipping\n";
-      continue;
-    }
+  for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
 
     if (subgraph_num_edges[graph_id] == 0) break;
 

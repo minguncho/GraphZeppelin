@@ -1,0 +1,24 @@
+13 sub:
+Number of total users: 1,174,963 (Number of duplicate users: 108,113)
+E_P: 66,443,121,087 (Avg. deg: ~56,000) Note: Avg. deg of total users, not unique users.
+Mem require for 1 E_P: 531 GB
+
+12 sub:
+Number of total users: 1,021,742 (Number of duplicate users: 76,770)
+E_P: 54,704,860,277 (Avg. deg: ~53,000) Note: Avg. deg of total users, not unique users.
+Mem require for 1 E_P: 437 GB
+
+11 sub:
+Number of total users: 870,359 (Number of duplicate users: 55,277)
+E_P: 43,246,529,624 (Avg. deg: ~49,000) Note: Avg. deg of total users, not unique users.
+Mem require for 1 E_P: 345 GB
+
+10 sub:
+Number of total users: 720,401 (Number of duplicate users: 43,684)
+E_P: 43,246,529,624 (Avg. deg: ~44,000) Note: Avg. deg of total users, not unique users.
+Mem require for 1 E_P: 256 GB
+
+9 sub:
+Number of total users: 592,543 (Number of duplicate users: 35,229)
+E_P: 23,829,133,568 (Avg. deg: ~40,000) Note: Avg. deg of total users, not unique users.
+Mem require for 1 E_P: 190 GB

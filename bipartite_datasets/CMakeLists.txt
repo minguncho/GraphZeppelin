@@ -26,6 +26,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Eigen json)
 
+find_package(OpenMP REQUIRED)
+
 add_executable(example_exe.o
   example_exe.cpp
 )
@@ -35,3 +37,23 @@ add_executable(data_parser
   data_parser.cpp
 )
 target_link_libraries(data_parser PRIVATE nlohmann_json::nlohmann_json)
+
+add_executable(convokit_parser
+  convokit_parser.cpp
+)
+target_link_libraries(convokit_parser PRIVATE nlohmann_json::nlohmann_json)
+
+add_executable(convokit_overlap_finder
+  convokit_overlap_finder.cpp
+)
+target_link_libraries(convokit_overlap_finder PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
+
+add_executable(convokit_upperbound
+  convokit_upperbound.cpp
+)
+target_link_libraries(convokit_upperbound PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
+
+add_executable(convokit_num_users
+  convokit_num_users.cpp
+)
+target_link_libraries(convokit_num_users PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)

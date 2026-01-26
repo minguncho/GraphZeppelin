@@ -361,7 +361,7 @@ void merge_partition(std::string stream_name) {
         part1_read_complete = true;
       }
       else {
-        update_array_merged[i] = upd;
+        update_array_merged[i].edge = upd.edge;
       }
     }
 
@@ -387,7 +387,7 @@ void merge_partition(std::string stream_name) {
         part2_read_complete = true;
       }
       else {
-        update_array_merged[i] = upd;
+        update_array_merged[i].edge = upd.edge;
       }
     }
 

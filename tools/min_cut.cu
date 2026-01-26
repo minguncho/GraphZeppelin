@@ -219,6 +219,7 @@ int main(int argc, char **argv) {
   std::cout << "Number of sketch graphs: " << num_sketch_graphs << "\n";
 
   mc_gpu_alg.display_time();
+  std::cout << "Maximum Memory Usage(MiB): " << get_max_mem_used() << std::endl;
 
   /********************************************************************\
   |                                                                    |
@@ -282,7 +283,7 @@ int main(int argc, char **argv) {
         std::cout << "Exporting nodes.\n";
         std::cout << "  Number of nodes in cut: " << mc.left_vertices.size() << "\n";
         std::cout << "  Number of nodes not in cut: " << mc.right_vertices.size() << "\n";
-        std::ofstream mc_out("mc_nodes.txt", std::ios_base::out);
+        std::ofstream mc_out("mc_nodes" + stream_file + ".txt", std::ios_base::out);
         for (auto& node_in_cut : mc.left_vertices) {
           mc_out << node_in_cut << " ";
         }

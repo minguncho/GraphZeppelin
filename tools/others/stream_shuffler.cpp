@@ -4,11 +4,18 @@
 #include <random>
 #include <vector>
 #include <omp.h>
+#include <sys/resource.h> // for rusage
 
 #include "types.h"
 #include <binary_file_stream.h>
 
 static constexpr size_t update_array_size = 100000;
+
+static double get_max_mem_used() {
+  struct rusage data;
+  getrusage(RUSAGE_SELF, &data);
+  return (double) data.ru_maxrss / 1024.0;
+}
 
 // If binary stream is small enough to fit in RAM, do everything in RAM.
 void inplace_shuffle(std::string stream_name) {
@@ -131,169 +138,181 @@ void partition_shuffle(std::string stream_name) {
   std::cout << "Size of first half buffer:  " << first_buffer_size << "\n";
   std::cout << "Size of second half buffer: " << second_buffer_size << "\n";
 
-  std::vector<Edge> edges;
-  size_t total_read_updates = 0;
-  bool read_complete = false;
   GraphStreamUpdate update_array[update_array_size];
+  std::mt19937_64 rng(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 
   /*
   * Part 1: Read first half of binary stream, shuffle, then write
   */
 
   std::cout << "Processing first half:\n";
+  {
+    size_t total_read_updates = 0;
+    bool read_complete = false;
 
-  // Initialize
-  auto timer_start = std::chrono::steady_clock::now();
-  edges.resize(first_buffer_size, {0, 0});
-  std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "  Finished initializing buffer for edges: " << duration.count() << "s " <<  std::endl;
+    // Initialize
+    auto timer_start = std::chrono::steady_clock::now();
+    std::vector<Edge> edges_part1(first_buffer_size, {0, 0});
+    std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "  Finished initializing buffer for edges: " << duration.count() << "s " <<  std::endl;
 
-  // Reading edges
-  std::cout << "  Reading edges...\n";
-  timer_start = std::chrono::steady_clock::now();
+    // Reading edges
+    std::cout << "  Reading edges...\n";
+    timer_start = std::chrono::steady_clock::now();
 
-  while (!read_complete) {
-    size_t updates = stream.get_update_buffer(update_array, update_array_size);
+    while (!read_complete) {
+      size_t updates = stream.get_update_buffer(update_array, update_array_size);
 
-    #pragma omp parallel for
-    for (size_t i = 0; i < updates; i++) {
-      edges[total_read_updates + i] = update_array[i].edge;
+      if (total_read_updates % 1000000000 == 0) {
+        std::cout << "  Total read updates: " << total_read_updates << "\n";
+        std::cout << "    Maximum Memory Usage(MiB): " << get_max_mem_used() << "\n";
+      }
+
+      #pragma omp parallel for
+      for (size_t i = 0; i < updates; i++) {
+        edges_part1[total_read_updates + i] = update_array[i].edge;
+      }
+      total_read_updates += updates;
+
+      if (total_read_updates == first_buffer_size) {
+        read_complete = true;
+      }
     }
-    total_read_updates += updates;
 
-    if (total_read_updates == first_buffer_size) {
-      read_complete = true;
+    duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "    Total number of edges read: " << total_read_updates << "\n";
+    std::cout << "  Reading time (sec): " << duration.count() << "\n";
+
+    // Shuffling edges
+    std::cout << "  Shuffling edges...\n";
+    timer_start = std::chrono::steady_clock::now();
+    std::shuffle(edges_part1.begin(), edges_part1.end(), rng);
+
+    duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "  Shuffling time (sec): " << duration.count() << "\n";
+
+    // Writing edges
+    timer_start = std::chrono::steady_clock::now();
+    std::cout << "  Writing edges back to stream...\n";
+    BinaryFileStream fout_part1(output_name + "_part1", false);
+    fout_part1.write_header(stream.vertices(), first_buffer_size);
+
+    for (size_t i = 0; i < update_array_size; i++) {
+      update_array[i].edge = {0, 0};
+      update_array[i].type = INSERT;
     }
-  }
+    
+    size_t update_array_index = 0;
+    timer_start = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < edges_part1.size(); i++) {
+      update_array[update_array_index].edge = edges_part1[i];
 
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "    Total number of edges read: " << total_read_updates << "\n";
-  std::cout << "  Reading time (sec): " << duration.count() << "\n";
-
-  // Shuffling edges
-  std::cout << "  Shuffling edges...\n";
-  timer_start = std::chrono::steady_clock::now();
-  std::mt19937_64 rng(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  std::shuffle(edges.begin(), edges.end(), rng);
-
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "  Shuffling time (sec): " << duration.count() << "\n";
-
-  // Writing edges
-  timer_start = std::chrono::steady_clock::now();
-  std::cout << "  Writing edges back to stream...\n";
-  BinaryFileStream fout_part1(output_name + "_part1", false);
-  fout_part1.write_header(stream.vertices(), first_buffer_size);
-
-  for (size_t i = 0; i < update_array_size; i++) {
-    update_array[i].edge = {0, 0};
-    update_array[i].type = INSERT;
-  }
-  
-  size_t update_array_index = 0;
-  timer_start = std::chrono::steady_clock::now();
-  for (size_t i = 0; i < edges.size(); i++) {
-    update_array[update_array_index].edge = edges[i];
-
-    update_array_index++;
-    if (update_array_index == update_array_size) {
-      fout_part1.write_updates(update_array, update_array_size);
-      update_array_index = 0;
+      update_array_index++;
+      if (update_array_index == update_array_size) {
+        fout_part1.write_updates(update_array, update_array_size);
+        update_array_index = 0;
+      }
     }
+
+    // Write any remaining edges to stream
+    if (update_array_index > 0) {
+      fout_part1.write_updates(update_array, update_array_index);
+    }
+
+    duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "  Writing time (sec): " << duration.count() << "\n";
   }
-
-  // Write any remaining edges to stream
-  if (update_array_index > 0) {
-		fout_part1.write_updates(update_array, update_array_index);
-	}
-
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "  Writing time (sec): " << duration.count() << "\n";
-
   /*
   * Part 2: Read second half of binary stream, shuffle, then write
   */
 
   std::cout << "Processing second half:\n";
 
-  // Initialize
-  total_read_updates = 0;
-  read_complete = false;
+  {
+    // Initialize
+    size_t total_read_updates = 0;
+    bool read_complete = false;
 
-  timer_start = std::chrono::steady_clock::now();
-  edges.resize(second_buffer_size, {0, 0});
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "  Finished initializing buffer for edges: " << duration.count() << "s " <<  std::endl;
+    auto timer_start = std::chrono::steady_clock::now();
+    std::vector<Edge> edges_part2(second_buffer_size, {0, 0});
+    std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "  Finished initializing buffer for edges: " << duration.count() << "s " <<  std::endl;
 
-  // Reading edges
-  std::cout << "  Reading edges...\n";
-  timer_start = std::chrono::steady_clock::now();
+    // Reading edges
+    std::cout << "  Reading edges...\n";
+    timer_start = std::chrono::steady_clock::now();
 
-  while (!read_complete) {
-    size_t updates = stream.get_update_buffer(update_array, update_array_size);
+    while (!read_complete) {
+      size_t updates = stream.get_update_buffer(update_array, update_array_size);
 
-    #pragma omp parallel for
-    for (size_t i = 0; i < updates; i++) {
-      if (read_complete) continue;
-
-      GraphStreamUpdate upd;
-      upd.edge = update_array[i].edge;
-      upd.type = static_cast<UpdateType>(update_array[i].type);
-
-      if (upd.type == BREAKPOINT) {
-        read_complete = true;
+      if (total_read_updates % 1000000000 == 0) {
+        std::cout << "  Total read updates: " << total_read_updates << "\n";
+        std::cout << "    Maximum Memory Usage(MiB): " << get_max_mem_used() << "\n";
       }
-      else {
-        edges[total_read_updates + i] = upd.edge;
+
+      #pragma omp parallel for
+      for (size_t i = 0; i < updates; i++) {
+        if (read_complete) continue;
+
+        GraphStreamUpdate upd;
+        upd.edge = update_array[i].edge;
+        upd.type = static_cast<UpdateType>(update_array[i].type);
+
+        if (upd.type == BREAKPOINT) {
+          read_complete = true;
+        }
+        else {
+          edges_part2[total_read_updates + i] = upd.edge;
+        }
+      }
+      total_read_updates += updates;
+    }
+    // Decrement 1 for break point
+    total_read_updates--;
+
+    duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "    Total number of edges read: " << total_read_updates << "\n";
+    std::cout << "  Reading time (sec): " << duration.count() << "\n";
+
+    // Shuffling edges
+    std::cout << "  Shuffling edges...\n";
+    timer_start = std::chrono::steady_clock::now();
+    std::shuffle(edges_part2.begin(), edges_part2.end(), rng);
+
+    duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "  Shuffling time (sec): " << duration.count() << "\n";
+
+    // Writing edges
+    timer_start = std::chrono::steady_clock::now();
+    std::cout << "  Writing edges back to stream...\n";
+    BinaryFileStream fout_part2(output_name + "_part2", false);
+    fout_part2.write_header(stream.vertices(), second_buffer_size);
+
+    for (size_t i = 0; i < update_array_size; i++) {
+      update_array[i].edge = {0, 0};
+      update_array[i].type = INSERT;
+    }
+    
+    size_t update_array_index = 0;
+    timer_start = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < edges_part2.size(); i++) {
+      update_array[update_array_index].edge = edges_part2[i];
+
+      update_array_index++;
+      if (update_array_index == update_array_size) {
+        fout_part2.write_updates(update_array, update_array_size);
+        update_array_index = 0;
       }
     }
-    total_read_updates += updates;
-  }
-  // Decrement 1 for break point
-  total_read_updates--;
 
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "    Total number of edges read: " << total_read_updates << "\n";
-  std::cout << "  Reading time (sec): " << duration.count() << "\n";
-
-  // Shuffling edges
-  std::cout << "  Shuffling edges...\n";
-  timer_start = std::chrono::steady_clock::now();
-  std::shuffle(edges.begin(), edges.end(), rng);
-
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "  Shuffling time (sec): " << duration.count() << "\n";
-
-  // Writing edges
-  timer_start = std::chrono::steady_clock::now();
-  std::cout << "  Writing edges back to stream...\n";
-  BinaryFileStream fout_part2(output_name + "_part2", false);
-  fout_part2.write_header(stream.vertices(), second_buffer_size);
-
-  for (size_t i = 0; i < update_array_size; i++) {
-    update_array[i].edge = {0, 0};
-    update_array[i].type = INSERT;
-  }
-  
-  update_array_index = 0;
-  timer_start = std::chrono::steady_clock::now();
-  for (size_t i = 0; i < edges.size(); i++) {
-    update_array[update_array_index].edge = edges[i];
-
-    update_array_index++;
-    if (update_array_index == update_array_size) {
-      fout_part2.write_updates(update_array, update_array_size);
-      update_array_index = 0;
+    // Write any remaining edges to stream
+    if (update_array_index > 0) {
+      fout_part2.write_updates(update_array, update_array_index);
     }
+
+    duration = std::chrono::steady_clock::now() - timer_start;
+    std::cout << "  Writing time (sec): " << duration.count() << "\n";
   }
-
-  // Write any remaining edges to stream
-  if (update_array_index > 0) {
-		fout_part2.write_updates(update_array, update_array_index);
-	}
-
-  duration = std::chrono::steady_clock::now() - timer_start;
-  std::cout << "  Writing time (sec): " << duration.count() << "\n";
 }
 
 void merge_partition(std::string stream_name) {
@@ -373,6 +392,11 @@ void merge_partition(std::string stream_name) {
     }
 
     total_read_updates += updates_part2;
+
+    if (total_read_updates % 1000000000 == 0) {
+      std::cout << "  Total read updates: " << total_read_updates << "\n";
+      std::cout << "    Maximum Memory Usage(MiB): " << get_max_mem_used() << "\n";
+    }
 
     if (part2_read_complete) {
       total_read_updates--; 

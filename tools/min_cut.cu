@@ -1,4 +1,5 @@
 #include <fstream>
+#include <filesystem>
 #include <iomanip>
 #include <vector>
 #include <graph_sketch_driver.h>
@@ -283,7 +284,10 @@ int main(int argc, char **argv) {
         std::cout << "Exporting nodes.\n";
         std::cout << "  Number of nodes in cut: " << mc.left_vertices.size() << "\n";
         std::cout << "  Number of nodes not in cut: " << mc.right_vertices.size() << "\n";
-        std::ofstream mc_out("mc_nodes" + stream_file + ".txt", std::ios_base::out);
+        std::filesystem::path p(stream_file);
+        std::string stream_name = p.filename().string();
+
+        std::ofstream mc_out("mc_nodes_" + stream_name + ".txt", std::ios_base::out);
         for (auto& node_in_cut : mc.left_vertices) {
           mc_out << node_in_cut << " ";
         }

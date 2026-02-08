@@ -8,17 +8,19 @@
 void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
                                 int num_host_threads, int num_device_threads,
                                 int num_batch_per_buffer, size_t _batch_size,
-                                SketchParams _sketchParams) {
+                                int _gutter_reduced_factor, SketchParams _sketchParams) {
   auto start = std::chrono::steady_clock::now();
 
   num_nodes = _num_nodes;
-  batch_size = _batch_size;
+  batch_size = _batch_size / _gutter_reduced_factor; // Reducing the size of gutter
   num_updates = 0;
   num_streams = num_host_threads;
   cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
+  gutter_reduced_factor = _gutter_reduced_factor;
 
   sketchParams = _sketchParams;
 
+  std::cout << "Gutter batch size: " << batch_size << "\n";
 
   auto cuda_malloc_task = [&]() {
     if (sketchParams.cudaUVM_enabled) {
@@ -98,7 +100,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     if (first_es_subgraph > cur_subgraphs) {
       subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads,
                                           num_device_threads, num_batch_per_buffer, batch_size,
-                                          default_skt_params);
+                                          gutter_reduced_factor, default_skt_params);
       create_sketch_graph(cur_subgraphs, subgraphs[cur_subgraphs].get_skt_params());
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }

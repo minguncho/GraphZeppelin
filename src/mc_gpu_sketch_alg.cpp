@@ -8,15 +8,14 @@
 void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
                                 int num_host_threads, int num_device_threads,
                                 int num_batch_per_buffer, size_t _batch_size,
-                                int _gutter_reduced_factor, SketchParams _sketchParams) {
+                                SketchParams _sketchParams) {
   auto start = std::chrono::steady_clock::now();
 
   num_nodes = _num_nodes;
-  batch_size = _batch_size / _gutter_reduced_factor; // Reducing the size of gutter
+  batch_size = _batch_size;
   num_updates = 0;
   num_streams = num_host_threads;
   cuda_streams = new CudaStream<MCGPUSketchAlg>*[num_host_threads];
-  gutter_reduced_factor = _gutter_reduced_factor;
 
   sketchParams = _sketchParams;
 
@@ -38,23 +37,15 @@ void SketchSubgraph::initialize(MCGPUSketchAlg *sketching_alg, int graph_id, nod
   };
   std::thread cuda_thr(cuda_malloc_task);
 
-  subgraph_gutters.resize(num_nodes);
-  auto gutter_init_task = [&](node_id_t start, node_id_t end) {
-    for (node_id_t i = start; i < end; i++) {
-      subgraph_gutters[i].data.resize(batch_size);
-    }
+  subgraph_gutters.resize(num_host_threads);
+  auto gutter_init_task = [&](int thr_id) {
+    subgraph_gutters[thr_id].data.resize(batch_size);
   };
 
   std::vector<std::thread> threads(num_host_threads);
-  node_id_t cur = 0;
-  node_id_t amt = num_nodes / num_host_threads;
-  for (int i = 0; i < num_host_threads - 1; i++) {
-    threads[i] = std::thread(gutter_init_task, cur, cur + amt);
-    cur += amt;
+  for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+    threads[thr_id] = std::thread(gutter_init_task, thr_id);
   }
-  threads[num_host_threads - 1] = std::thread(gutter_init_task, cur, num_nodes);
-
-  gutter_locks = new std::mutex[num_nodes];
 
   for (auto& thr : threads) {
     thr.join();
@@ -100,7 +91,7 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
     if (first_es_subgraph > cur_subgraphs) {
       subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads,
                                           num_device_threads, num_batch_per_buffer, batch_size,
-                                          gutter_reduced_factor, default_skt_params);
+                                          default_skt_params);
       create_sketch_graph(cur_subgraphs, subgraphs[cur_subgraphs].get_skt_params());
       cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
     }
@@ -110,32 +101,21 @@ void MCGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &
 
   node_id_t src_vertex = updates.src;
   auto &dsts_data = updates.dsts_data;
+  node_id_t max_subgraph = 0;
 
-  std::vector<std::array<node_id_t, 32>> subgraph_buffers;
-  subgraph_buffers.resize(first_es_subgraph);
-  std::array<size_t, 32> buffer_sizes;
-  buffer_sizes.fill(0);
-
-  // put data into local buffers and when full move into subgraph's gutters
   for (size_t i = 0; i < dsts_data.size(); i++) {
     auto &dst_data = dsts_data[i];
     node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
+    max_subgraph = std::max(max_subgraph, update_subgraphs);
 
     for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
-      subgraph_buffers[graph_id][buffer_sizes[graph_id]++] = dst_data.dst;
-      if (buffer_sizes[graph_id] >= 32) {
-        subgraphs[graph_id].batch_insert(thr_id, src_vertex, subgraph_buffers[graph_id],
-                                         buffer_sizes[graph_id]);
-        buffer_sizes[graph_id] = 0;
-      }
+      subgraphs[graph_id].update_insert(thr_id, src_vertex, dst_data.dst);
     }
   }
 
-  // flush our buffers
-  for (size_t i = 0; i < first_es_subgraph; i++) {
-    if (buffer_sizes[i] > 0) {
-      subgraphs[i].batch_insert(thr_id, src_vertex, subgraph_buffers[i], buffer_sizes[i]);
-    }
+  // Processing each subgraph's inserted batch 
+  for (size_t graph_id = min_subgraph; graph_id <= max_subgraph; graph_id++) {
+    subgraphs[graph_id].process_insert(thr_id, src_vertex);
   }
 }
 

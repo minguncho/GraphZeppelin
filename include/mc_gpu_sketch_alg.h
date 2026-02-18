@@ -26,7 +26,6 @@ class SketchSubgraph {
   node_id_t num_nodes;
   size_t batch_size;
 
-  int gutter_reduced_factor;
   std::vector<Gutter> subgraph_gutters;
 
   std::mutex *gutter_locks;
@@ -51,23 +50,34 @@ class SketchSubgraph {
 
   void initialize(MCGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
                   int num_host_threads, int num_device_threads, int num_batch_per_buffer,
-                  size_t _batch_size, int _gutter_reduced_factor, SketchParams _sketchParams);
+                  size_t _batch_size, SketchParams _sketchParams);
 
   // Insert an edge to the subgraph
   void batch_insert(int thr_id, const node_id_t src, const std::array<node_id_t, 32> dsts,
                     const size_t num_elms);
+  
+  void update_insert(int thr_id, const node_id_t src, node_id_t dst) {
+    auto &num_elems = subgraph_gutters[thr_id].elms;
+    subgraph_gutters[thr_id].data[num_elems++] = dst;
 
+    if (num_elems == batch_size) process_insert(thr_id, src);
+  }
+
+  void process_insert(int thr_id, const node_id_t src) {
+    if (cuda_streams == nullptr) 
+      throw std::runtime_error("ERROR: Cannot call apply_update_batch() on uninit sketch subgraph");
+      
+    auto &num_elems = subgraph_gutters[thr_id].elms;
+
+    // Already processed
+    if (num_elems == 0) return;
+
+    num_updates += num_elems;
+    cuda_streams[thr_id]->process_batch(src, subgraph_gutters[thr_id].data.data(), num_elems);
+    num_elems = 0;
+  }
+ 
   void flush() {
-    // flush subgraph gutters
-    for (node_id_t v = 0; v < num_nodes; v++) {
-      if (subgraph_gutters[v].elms > 0) {
-        subgraph_gutters[v].data.resize(subgraph_gutters[v].elms);
-        apply_update_batch(0, v, subgraph_gutters[v].data);
-        subgraph_gutters[v].elms = 0;
-        subgraph_gutters[v].data.resize(batch_size);
-      }
-    }
-
     // flush cuda streams
     for (int thr_id = 0; thr_id < num_streams; thr_id++) {
       cuda_streams[thr_id]->flush_buffers();
@@ -155,8 +165,6 @@ private:
   EdgeStore edge_store;
   static constexpr size_t initial_sketch_graphs = 1;
 
-  int gutter_reduced_factor;
-
   // Number of edge updates in single batch
   size_t batch_size;
 
@@ -172,7 +180,7 @@ public:
   MCGPUSketchAlg(node_id_t num_nodes, int num_threads, int num_reader_threads,
                 int num_batch_per_buffer, SketchParams sketchParams, int num_subgraphs,
                 int max_sketch_graphs, int k, size_t sketch_bytes, bool use_edge_store,
-                int gutter_reduced_factor, CCAlgConfiguration config)
+                CCAlgConfiguration config)
      : MCSketchAlg(num_nodes, sketchParams.seed, max_sketch_graphs, config),
        edge_store(sketchParams.seed, num_nodes, sketch_bytes, num_subgraphs, 
                   (use_edge_store ? initial_sketch_graphs : max_sketch_graphs)),
@@ -185,7 +193,6 @@ public:
        max_sketch_graphs(max_sketch_graphs),
        k(k),
        cur_subgraphs(initial_sketch_graphs),
-       gutter_reduced_factor(gutter_reduced_factor),
        sketches_factor(config.get_sketches_factor()) {
 
     // Start timer for initializing
@@ -227,10 +234,10 @@ public:
     // Initialize Sketch Graphs
     for (int i = 0; i < cur_subgraphs; i++) {
       subgraphs[i].initialize(this, i, num_nodes, num_host_threads, num_device_threads,
-                              num_batch_per_buffer, batch_size, gutter_reduced_factor, default_skt_params);
+                              num_batch_per_buffer, batch_size, default_skt_params);
       create_sketch_graph(i, subgraphs[i].get_skt_params());
     }
-    
+
     store_buffers = new SubgraphTaggedUpdate*[num_host_threads];
     sketch_buffers = new SubgraphTaggedUpdate*[num_host_threads];
 

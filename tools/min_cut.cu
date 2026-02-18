@@ -68,9 +68,9 @@ void track_insertions(uint64_t total, GraphSketchDriver<MCGPUSketchAlg> *driver,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 8 && argc != 9) {
+  if (argc != 7 && argc != 8) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, eps, gutter_reduced_factor, export_mincut, [num_batch_per_buffer]" << std::endl;
+    std::cout << "Arguments: stream_file, graph_workers, reader_threads, no_edge_store, eps, export_mincut, [num_batch_per_buffer]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -95,24 +95,22 @@ int main(int argc, char **argv) {
 
   double epsilon = std::stod(argv[5]);
 
-  int gutter_reduced_factor = std::atoi(argv[6]);
-
   bool export_mincut;
-  if (std::string(argv[7]) == "true") {
+  if (std::string(argv[6]) == "true") {
     export_mincut = true;
   }
-  else if (std::string(argv[7]) == "false") {
+  else if (std::string(argv[6]) == "false") {
     export_mincut = false;
   }   
   else {
-    std::cout << "Invalid option for export_mincut: " << argv[7] << ". Must be 'true' or 'false'\n";
+    std::cout << "Invalid option for export_mincut: " << argv[6] << ". Must be 'true' or 'false'\n";
     exit(EXIT_FAILURE); 
   }
   std::cout << "Exporting mincut: " << export_mincut << "\n";
 
   int num_batch_per_buffer = 540; // Default value of num_batch_per_buffer
-  if (argc == 10) {
-    num_batch_per_buffer = std::atoi(argv[8]);
+  if (argc == 8) {
+    num_batch_per_buffer = std::atoi(argv[7]);
   }
 
   BinaryFileStream stream(stream_file);
@@ -153,16 +151,9 @@ int main(int argc, char **argv) {
   // Total bytes of sketching datastructure of one subgraph
   int w = 4; // 4 bytes when num_vertices < 2^32
   double sketch_bytes = 4 * w * num_vertices * ((2 * log2(num_vertices)) + 2) * ((reduced_k * log2(num_vertices))/(1 - log2(1.2)));
-
-  double batch_size = (sketchParams.num_buckets * sizeof(Bucket)) / sizeof(node_id_t);
-  double sketch_gutter_bytes = ((batch_size / gutter_reduced_factor) * num_vertices) * sizeof(node_id_t);
-  sketch_bytes += sketch_gutter_bytes;
   double adjlist_edge_bytes = 8;
 
   std::cout << "Total bytes of sketching data structure of one subgraph: " << sketch_bytes / 1000000000 << "GB\n";
-  std::cout << "  Bytes of gutter implementation for sketch subgraph: " << sketch_gutter_bytes / 1000000000 << "GB\n";
-
-  std::cout << "Batch size: " << batch_size << "\n";
 
   // Calculate number of minimum adj. list subgraph
   size_t num_edges_complete = (size_t(num_vertices) * (size_t(num_vertices) - 1)) / 2;
@@ -202,7 +193,7 @@ int main(int argc, char **argv) {
   sketchParams.seed = get_seed();
   std::cout << "Sketch Seed: " << sketchParams.seed << "\n";
   MCGPUSketchAlg mc_gpu_alg{num_vertices, num_threads, reader_threads, num_batch_per_buffer, sketchParams, 
-    num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, use_edge_store, gutter_reduced_factor, mc_config};
+    num_graphs, max_sketch_graphs, reduced_k, sketch_bytes, use_edge_store, mc_config};
 
   GraphSketchDriver<MCGPUSketchAlg> driver{&mc_gpu_alg, &stream, driver_config, reader_threads};
 

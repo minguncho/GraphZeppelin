@@ -93,6 +93,7 @@ void init_subgraph(int graph_id, int k, node_id_t num_vertices,
   subgraph_mtxs[graph_id] = mtxs;
 
   std::cout << "    + Initialized subgraph #" << graph_id << std::endl;
+  std::cout << "        Maximum Memory Usage: " << get_max_mem_used() << std::endl;
 }
 
 void delete_subgraph(int graph_id,
@@ -116,9 +117,9 @@ void delete_subgraph(int graph_id,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3) {
+  if (argc != 3 && argc != 4) {
     std::cout << "ERROR: Incorrect number of arguments!" << std::endl;
-    std::cout << "Arguments: stream_file, eps" << std::endl;
+    std::cout << "Arguments: stream_file, eps [Individual subgraph id]" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -164,6 +165,22 @@ int main(int argc, char **argv) {
   // just to be safe, start one id before
   cur_min_subgraph_id--;
   cur_max_subgraph_id--;
+
+  // Check if we are running single subgraph mode
+  if (argc == 4) {
+    int fixed_subgraph_id = std::atoi(argv[3]);
+    std::cout << "Running single subgraph mode, id: " << fixed_subgraph_id << std::endl;
+
+    // Check if id is valid
+    if (fixed_subgraph_id < cur_min_subgraph_id || fixed_subgraph_id >= num_full_subgraphs) {
+      std::cout << "Invalid subgraph id! Must be between " << cur_min_subgraph_id << " and " << num_full_subgraphs - 1 << std::endl;
+      exit (EXIT_FAILURE);
+    }
+
+    cur_min_subgraph_id = fixed_subgraph_id;
+    cur_max_subgraph_id = fixed_subgraph_id;
+    num_full_subgraphs = fixed_subgraph_id + 1;
+  }
 
   // num_full_subgraphs serve as a maximum number of disjoint set to maintain
   std::cout << "Number of subgraphs that can have full spanning forests: " << num_full_subgraphs << std::endl;
@@ -267,13 +284,16 @@ int main(int argc, char **argv) {
       }
     }
 
+    
+    // Note: No need to delete, it won't save space since memory allocation for all subgraphs
+    //   happens in the beginning of the stream
     // Check for sizes of each subgraph, if full, delete
-    for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
+    /*for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
       if (subgraph_num_edges[graph_id] == ((k * num_vertices) - k)) {
         delete_subgraph(graph_id, subgraph_dsus, subgraph_k_spanning_forests, subgraph_mtxs);
         cur_min_subgraph_id++;
       }
-    }
+    }*/
   }
   std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timer_start;
   std::cout << "Finished building k spanning forests for each subgraphs...\n";
@@ -286,9 +306,20 @@ int main(int argc, char **argv) {
     std::cout << "  T" << tid << ": " << threads_merge_time[tid].count() << "s" << std::endl;
   }
 
+  std::cout << "Size of full subgraph: " << ((k * num_vertices) - k) << std::endl;
+
   std::cout << "Sizes of currently maintaining subgraphs:" << std::endl;
   for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
     std::cout << "  G_" << graph_id << ": " << subgraph_num_edges[graph_id] << std::endl;
+  }
+
+  // Free DSUs and mutex for extra memory
+  for (int graph_id = cur_min_subgraph_id; graph_id <= cur_max_subgraph_id; graph_id++) {
+    subgraph_dsus[graph_id].clear();
+    for (auto* mtx_ptr : subgraph_mtxs[graph_id]) {
+      delete[] mtx_ptr;
+    }
+    subgraph_mtxs[graph_id].clear();
   }
 
   std::cout << "Computing minimum cut:" << std::endl;

@@ -34,6 +34,8 @@ struct SketchParams {
 
   // Variables for default
   Bucket* d_buckets;
+
+  bool sharedmem_enabled;
 };
 
 class CudaKernel {

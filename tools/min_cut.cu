@@ -142,6 +142,7 @@ int main(int argc, char **argv) {
   sketchParams.num_columns = sketchParams.num_samples * Sketch::default_cols_per_sample;
   sketchParams.bkt_per_col = Sketch::calc_bkt_per_col(Sketch::calc_vector_length(num_vertices));
   sketchParams.num_buckets = sketchParams.num_columns * sketchParams.bkt_per_col + 1;
+  sketchParams.sharedmem_enabled = true;
 
   std::cout << "num_samples: " << sketchParams.num_samples << "\n";
   std::cout << "num_buckets: " << sketchParams.num_buckets << "\n";

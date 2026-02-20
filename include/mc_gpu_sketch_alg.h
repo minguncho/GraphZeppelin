@@ -228,8 +228,16 @@ public:
 
     size_t maxBytes = (default_skt_params.num_buckets * sizeof(vec_t_cu)) +
                       (default_skt_params.num_buckets * sizeof(vec_hash_t));
-    cudaKernel.updateSharedMemory(maxBytes);
-    std::cout << "Allocated Shared Memory of: " << maxBytes << "\n";
+
+    std::cout << "maxBytes (GPU's Shared Memory Allocation): " << maxBytes << "\n";
+    if (maxBytes > deviceProp.sharedMemPerBlockOptin) {
+      std::cout << "  " << maxBytes << " > " << deviceProp.sharedMemPerBlockOptin << "\n";
+      std::cout << "WARNING: Each vertex requires more memory than current GPU's shared memory, turning off shared memory feature.\n";
+      default_skt_params.sharedmem_enabled = false;
+    }
+    else {
+      cudaKernel.updateSharedMemory(maxBytes);
+    }
 
     // Initialize Sketch Graphs
     for (int i = 0; i < cur_subgraphs; i++) {

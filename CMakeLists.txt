@@ -268,6 +268,12 @@ if (BUILD_EXE)
     tools/others/mincut_estimator.cpp
   )
   target_link_libraries(mincut_estimator PRIVATE GraphZeppelin)
+
+  add_executable(mincut_count
+    tools/others/mincut_count.cpp
+  )
+  target_link_libraries(mincut_count PRIVATE GraphZeppelin)
+  
 endif()
 
 if (BUILD_BENCH)

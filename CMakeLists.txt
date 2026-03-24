@@ -118,6 +118,7 @@ add_library(CUDALibrary
   src/cuda_kernel.cu
   src/cc_gpu_sketch_alg.cpp
   src/mc_gpu_sketch_alg.cpp
+  src/mc_standalone_gpu_sketch_alg.cpp
   src/sk_gpu_sketch_alg.cpp)
 add_dependencies(CUDALibrary GutterTree StreamingUtilities VieCut tlx)
 target_link_libraries(CUDALibrary PUBLIC xxhash GutterTree StreamingUtilities VieCut tlx)
@@ -229,6 +230,10 @@ if (BUILD_EXE)
   add_executable(min_cut
     tools/min_cut.cu)
   target_link_libraries(min_cut PRIVATE GraphZeppelin CUDALibrary)
+
+   add_executable(mc_standalone
+    tools/mc_standalone.cu)
+  target_link_libraries(mc_standalone PRIVATE GraphZeppelin CUDALibrary)
 
   add_executable(adjlist_test
     tools/adjlist_test.cpp)

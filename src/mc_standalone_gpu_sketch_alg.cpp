@@ -1,0 +1,226 @@
+#include "mc_standalone_gpu_sketch_alg.h"
+
+#include <iostream>
+#include <thread>
+#include <unordered_set>
+#include <vector>
+
+void SketchSubgraph::initialize(MCStandaloneGPUSketchAlg *sketching_alg, int graph_id, node_id_t _num_nodes,
+                                int num_host_threads, int num_device_threads,
+                                int num_batch_per_buffer, size_t _batch_size,
+                                SketchParams _sketchParams) {
+  auto start = std::chrono::steady_clock::now();
+
+  num_nodes = _num_nodes;
+  batch_size = _batch_size;
+  num_updates = 0;
+  num_streams = num_host_threads;
+  cuda_streams = new CudaStream<MCStandaloneGPUSketchAlg>*[num_host_threads];
+
+  sketchParams = _sketchParams;
+
+  std::cout << "Gutter batch size: " << batch_size << "\n";
+
+  auto cuda_malloc_task = [&]() {
+    if (sketchParams.cudaUVM_enabled) {
+      Bucket* cudaUVM_buckets;
+      gpuErrchk(cudaMallocManaged(&cudaUVM_buckets,
+                                  num_nodes * sketchParams.num_buckets * sizeof(Bucket)));
+      sketchParams.cudaUVM_buckets = cudaUVM_buckets;
+    }
+
+    for (int i = 0; i < num_streams; i++) {
+      cuda_streams[i] =
+          new CudaStream<MCStandaloneGPUSketchAlg>(sketching_alg, graph_id, num_nodes, num_device_threads,
+                                         num_batch_per_buffer, sketchParams);
+    }
+  };
+  std::thread cuda_thr(cuda_malloc_task);
+
+  subgraph_gutters.resize(num_host_threads);
+  auto gutter_init_task = [&](int thr_id) {
+    subgraph_gutters[thr_id].data.resize(batch_size);
+  };
+
+  std::vector<std::thread> threads(num_host_threads);
+  for (int thr_id = 0; thr_id < num_host_threads; thr_id++) {
+    threads[thr_id] = std::thread(gutter_init_task, thr_id);
+  }
+
+  for (auto& thr : threads) {
+    thr.join();
+  }
+  cuda_thr.join();
+}
+
+void SketchSubgraph::batch_insert(int thr_id, const node_id_t src,
+                                  const std::array<node_id_t, 32> dsts, const size_t num_elms) {
+  auto &gutter = subgraph_gutters[src];
+  std::lock_guard<std::mutex> lk(gutter_locks[src]);
+
+  // pre flush updates
+  const size_t capacity = batch_size - gutter.elms;
+  std::memcpy(&gutter.data[gutter.elms], dsts.data(),
+              sizeof(node_id_t) * std::min(num_elms, capacity));
+  gutter.elms += std::min(num_elms, capacity);
+
+  if (num_elms >= capacity) {
+    apply_update_batch(thr_id, src, gutter.data);
+    size_t num_left = num_elms - capacity;
+    gutter.elms = num_left;
+
+    std::memcpy(&gutter.data[0], dsts.data() + capacity, sizeof(node_id_t) * num_left);
+  }
+}
+
+// call this function after we have found the depth of each update
+void MCStandaloneGPUSketchAlg::complete_update_batch(int thr_id, const TaggedUpdateBatch &updates) {
+  node_id_t min_subgraph = updates.min_subgraph;
+  node_id_t first_es_subgraph = updates.first_es_subgraph;
+
+  if (first_es_subgraph == 0) {
+    std::cerr << "Why are we here??" << std::endl;
+    throw std::runtime_error("gross");
+  }
+
+  // do we need to allocate more sketches due to edge_store contraction
+  if (first_es_subgraph > cur_subgraphs) {
+    sketch_creation_lock.lock();
+
+    // double check to ensure no one else performed the allocation 
+    if (first_es_subgraph > cur_subgraphs) {
+      subgraphs[cur_subgraphs].initialize(this, cur_subgraphs, num_nodes, num_host_threads,
+                                          num_device_threads, num_batch_per_buffer, batch_size,
+                                          default_skt_params);
+      create_sketch_graph(cur_subgraphs, subgraphs[cur_subgraphs].get_skt_params());
+      cur_subgraphs++; // do this last so that threads only touch params/sketches when initialized
+    }
+
+    sketch_creation_lock.unlock();
+  }
+
+  node_id_t src_vertex = updates.src;
+  auto &dsts_data = updates.dsts_data;
+  node_id_t max_subgraph = 0;
+
+  for (size_t i = 0; i < dsts_data.size(); i++) {
+    auto &dst_data = dsts_data[i];
+    node_id_t update_subgraphs = std::min(dst_data.subgraph, first_es_subgraph - 1);
+    max_subgraph = std::max(max_subgraph, update_subgraphs);
+
+    for (size_t graph_id = min_subgraph; graph_id <= update_subgraphs; graph_id++) {
+      subgraphs[graph_id].update_insert(thr_id, src_vertex, dst_data.dst);
+    }
+  }
+
+  // Processing each subgraph's inserted batch 
+  for (size_t graph_id = min_subgraph; graph_id <= max_subgraph; graph_id++) {
+    subgraphs[graph_id].process_insert(thr_id, src_vertex);
+  }
+}
+
+void MCStandaloneGPUSketchAlg::apply_update_batch(int thr_id, node_id_t src_vertex,
+                                     const std::vector<node_id_t> &dst_vertices) {
+  if (MCSketchAlg::get_update_locked()) throw UpdateLockedException();
+
+  // Get offset
+  size_t offset = edgeUpdate_offset.fetch_add(dst_vertices.size());
+
+  // Fill in buffer
+  size_t index = 0;
+  for (auto dst : dst_vertices) {
+    h_edgeUpdates[offset + index] = dst;
+    index++;
+  }
+
+  size_t batch_id = batch_count.fetch_add(1);
+  std::lock_guard<std::mutex> lk(batch_mutex);
+  batch_sizes.insert({batch_id, dst_vertices.size()});
+  batch_src.insert({batch_id, src_vertex});
+  batch_start_index.insert({batch_id, offset});
+}
+
+void MCStandaloneGPUSketchAlg::insert_start() {
+
+  size_t num_batches = batch_count;
+  std::cout << "Number of batches: " << num_batches << "\n";
+
+  auto task = [&](int thr_id) {
+    for (int batch_id = thr_id; batch_id < num_batches; batch_id += num_host_threads) {
+
+      node_id_t first_es_subgraph = edge_store.get_first_store_subgraph();
+
+      node_id_t src_vertex = batch_src[batch_id];
+      size_t update_offset = batch_start_index[batch_id];
+      node_id_t* dst_vertices = &h_edgeUpdates[update_offset];
+
+      // We only have an adjacency list so just directly insert
+      if (first_es_subgraph == 0) {
+        TaggedUpdateBatch more_upds = edge_store.insert_adj_edges(src_vertex, dst_vertices, batch_sizes[batch_id]);
+        if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+        continue;
+      }
+
+      SubgraphTaggedUpdate* store_edges = store_buffers[thr_id];
+      SubgraphTaggedUpdate* sketch_edges = sketch_buffers[thr_id];
+
+      int store_edge_count = 0;
+      int sketch_edge_count = 0;
+      for (vec_t i = 0; i < batch_sizes[batch_id]; i++) {
+        // Determine the depth of current edge
+        vec_t edge_id = static_cast<vec_t>(concat_pairing_fn(src_vertex, dst_vertices[i]));
+        size_t subgraph = Bucket_Boruvka::get_index_depth(edge_id, default_skt_params.seed, num_subgraphs-1);
+
+        if (subgraph >= first_es_subgraph) {
+          // Adj. list
+          store_edges[store_edge_count] = {subgraph, dst_vertices[i]};
+          store_edge_count++;
+        }
+        sketch_edges[sketch_edge_count] = {subgraph, dst_vertices[i]};
+        sketch_edge_count++;
+      }
+
+      // Perform adjacency list updates
+      TaggedUpdateBatch more_upds =
+          edge_store.insert_adj_edges(src_vertex, first_es_subgraph, store_edges, store_edge_count);
+      if (sketch_edge_count > 0)
+        complete_update_batch(thr_id, {src_vertex, 0, first_es_subgraph, std::vector<SubgraphTaggedUpdate>(sketch_edges, sketch_edges + sketch_edge_count)});
+      if (more_upds.dsts_data.size() > 0)
+        complete_update_batch(thr_id, more_upds);
+    }
+  };
+
+  std::vector<std::thread> threads;
+  for (int i = 0; i < num_host_threads; i++) threads.emplace_back(task, i);
+
+  // wait for threads to finish
+  for (int i = 0; i < num_host_threads; i++) threads[i].join();
+}
+
+
+void MCStandaloneGPUSketchAlg::apply_flush_updates() {
+  // first ensure that all pending contractions are moved out of the edge store.
+  auto task = [&](int thr_id) {
+    while (edge_store.contract_in_progress()) {
+      TaggedUpdateBatch more_upds =
+          edge_store.vertex_advance_subgraph(edge_store.get_first_store_subgraph());
+      if (more_upds.dsts_data.size() > 0) complete_update_batch(thr_id, more_upds);
+    }
+  };
+
+  std::vector<std::thread> threads;
+  for (size_t t = 0; t < num_host_threads; t++) {
+    threads.emplace_back(task, t);
+  }
+  for (size_t t = 0; t < num_host_threads; t++) {
+    threads[t].join();
+  }
+
+  // flush all subgraph
+  for (size_t graph_id = 0; graph_id < cur_subgraphs; graph_id++) {
+    subgraphs[graph_id].flush();
+  }
+
+  // ensure streams have finished applying updates
+  cudaDeviceSynchronize();
+}

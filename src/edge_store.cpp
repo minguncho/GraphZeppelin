@@ -56,6 +56,20 @@ TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
   return insert_adj_edges(src, 0, tagged_updates.data(), tagged_updates.size());
 }
 
+TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src,
+                                                   const node_id_t* dst_vertices, size_t count) {
+  
+  std::vector<SubgraphTaggedUpdate> tagged_updates;
+  tagged_updates.resize(count);
+  for (node_id_t i = 0; i < count; i++) {
+    node_id_t dst = dst_vertices[i];
+    auto idx = concat_pairing_fn(src, dst);
+    tagged_updates[i] = {Bucket_Boruvka::get_index_depth(idx, seed, num_subgraphs), dst};
+  }
+  return insert_adj_edges(src, 0, tagged_updates.data(), tagged_updates.size());
+}
+
+
 // TODO: Switch this over to take in a vector. Arrays are so Ohio
 TaggedUpdateBatch EdgeStore::insert_adj_edges(node_id_t src, node_id_t caller_first_es_subgraph,
                                               SubgraphTaggedUpdate *dst_data,
@@ -284,6 +298,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
 
 // checks if we should perform a contraction and begins the process if so
 void EdgeStore::check_if_too_big() {
+  return;
   if (num_edges < max_edges) {
     // no contraction needed
     return;

@@ -254,6 +254,11 @@ if (BUILD_EXE)
   )
   target_link_libraries(metis_converter PRIVATE GraphZeppelin)
 
+  add_executable(edgelist_converter
+    tools/converter/edgelist_converter.cpp
+  )
+  target_link_libraries(edgelist_converter PRIVATE GraphZeppelin)
+
   add_executable(stream_converter
     tools/converter/stream_converter.cpp
   )

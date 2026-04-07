@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <vector>
 #include <chrono>
+#include <unordered_set>
+#include <omp.h>
+#include <algorithm>
 
 #include "binary_file_stream.h"
 
@@ -135,10 +138,8 @@ int main(int argc, char** argv) {
   std::cout << "num_updates = " << num_updates << std::endl;
 
   GraphStreamUpdate update_array[update_array_size];
-  size_t current_node_id = 1;
 
-  std::unordered_map<node_id_t, node_id_t> node_ids;
-  std::map<node_id_t, std::vector<node_id_t>> nodes_list;
+  std::vector<std::vector<node_id_t>> nodes_list(num_vertices);
   
   size_t total_read_updates = 0;
   bool read_complete = false;
@@ -165,35 +166,60 @@ int main(int argc, char** argv) {
         node_id_t src = upd.edge.src;
         node_id_t dst = upd.edge.dst;
 
-        if (node_ids.find(src) == node_ids.end()) {
-          node_ids[src] = current_node_id;
-          nodes_list[current_node_id] = std::vector<node_id_t>();
-          current_node_id++;
-        }
+        if (src == dst) continue;
 
-        if (node_ids.find(dst) == node_ids.end()) {
-          node_ids[dst] = current_node_id;
-          nodes_list[current_node_id] = std::vector<node_id_t>();
-          current_node_id++;
-        }
-
-        nodes_list[node_ids[src]].push_back(node_ids[dst]);
-        nodes_list[node_ids[dst]].push_back(node_ids[src]);
+        nodes_list[src].push_back(dst);
+        nodes_list[dst].push_back(src);
       }
     }
   }
   std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timer_start;
 
-  std::cout << "Number of collected nodes: " << node_ids.size() << "\n";
-  std::cout << "Number of collected edges: " << total_read_updates << "\n";
+  std::cout << "Number of read updates: " << total_read_updates << "\n";
+
+  if (num_updates != total_read_updates) {
+    std::cout << "Mismatching collected num_updates!\n";
+    std::cout << num_updates << " != " << total_read_updates << "\n";
+    exit(EXIT_FAILURE);
+  }
+
+  // Remove duplicates in nodes_list (even number)
+  //   if odd, keep one
+  #pragma omp parallel for
+  for (node_id_t src = 0; src < num_vertices; src++) {
+    auto& neighbors = nodes_list[src]; 
+    if (neighbors.size() == 0) continue;
+    std::sort(neighbors.begin(), neighbors.end());
+
+    size_t write_idx = 0;
+    for (node_id_t i = 0; i < neighbors.size(); ) {
+      node_id_t j = i + 1;
+
+      while (j < neighbors.size() && neighbors[j] == neighbors[i]) {
+        j++;
+      }
+
+      if ((j - i) % 2 != 0) {
+        neighbors[write_idx++] = neighbors[i];
+      }
+
+      i = j;
+    }
+    neighbors.resize(write_idx);
+    //neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
+  }
+
+  size_t total_edges = 0;
+
+  for (node_id_t src = 0; src < num_vertices; src++) {
+    total_edges += nodes_list[src].size();
+  }
+  total_edges /= 2; // divide by 2 since {src, dst} and {dst, src} were counted.
+
+  std::cout << "Number of unique edges in the graph: " << total_edges << "\n";
 
   std::cout << "Finished Reading Input Graph File...\n";
   std::cout << "  Duration: " << duration.count() << "s\n";
-
-  if ((num_vertices != node_ids.size()) || (num_updates != total_read_updates)) {
-    std::cout << "Mismatching collected num_vertices and num_updates!\n";
-    exit(EXIT_FAILURE);
-  }
 
   std::string metis_name = stream_file + ".metis";
   std::ofstream metis_file(metis_name);
@@ -201,17 +227,24 @@ int main(int argc, char** argv) {
   std::cout << "Writing METIS file...\n";
   timer_start = std::chrono::steady_clock::now();
 
-  metis_file << num_vertices << " " << num_updates << " 0" << "\n";
+  metis_file << num_vertices << " " << total_edges << " 0" << "\n";
 
-  for (auto it : nodes_list) {
-    for (size_t neighbor = 0; neighbor < it.second.size(); neighbor++) {
-      if (it.second[neighbor] == it.first) {
-        continue;
-      }
-      metis_file << (it.second[neighbor]) << " ";
-      
+  size_t num_written_edges = 0;
+
+  for (node_id_t src = 0; src < num_vertices; src++) {
+    for (auto dst : nodes_list[src]) {
+      metis_file << (dst + 1) << " ";
+      num_written_edges++;
     }
-    metis_file << "\n";  
+    metis_file << "\n";
+  }
+
+  std::cout << "Number of written edges: " << num_written_edges << "\n";
+
+  if ((total_edges * 2) != num_written_edges) {
+    std::cout << "Mismatching total_edges and num_written_edges!\n";
+    std::cout << (total_edges * 2) << " != " << num_written_edges << "\n";
+    exit(EXIT_FAILURE);
   }
   
   metis_file.close();

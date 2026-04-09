@@ -72,5 +72,8 @@ test/statistical_testing/stat_config.txt
 # VieCut
 /VieCut
 
+# Output directory
+/outputs
+
 # Others
 commands

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(GraphZeppelin LANGUAGES CXX CUDA)
+project(GPUSketch LANGUAGES CXX CUDA)
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 message("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
@@ -21,7 +21,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE
       STRING "Choose the type of build." FORCE)
 endif()
-message(STATUS "GraphZeppelin Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "GPUSketch Build Type: ${CMAKE_BUILD_TYPE}")
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   message(STATUS "Adding GNU compiler flags")
@@ -45,7 +45,7 @@ if (not_root AND "${CMAKE_BUILD_TYPE}" STREQUAL "Release")
   set(BUILD_EXE OFF)
 else()
   set(BUILD_EXE ON)
-  message (STATUS "GraphZeppelin building executables")
+  message (STATUS "GPUSketch building executables")
 endif()
 
 # Print out information of CUDA compiler
@@ -126,7 +126,7 @@ target_include_directories(CUDALibrary PUBLIC include/)
 target_compile_options(CUDALibrary PUBLIC -lineinfo) # -lineinfo: For profiling
 #target_compile_options(CUDALibrary PUBLIC -expt-relaxed-constexpr)
 
-add_library(GraphZeppelin
+add_library(GPUSketch
   src/cc_sketch_alg.cpp
   src/mc_sketch_alg.cpp
   src/edge_store.cpp
@@ -135,14 +135,14 @@ add_library(GraphZeppelin
   src/cc_alg_configuration.cpp
   src/sketch.cpp
   src/util.cpp)
-add_dependencies(GraphZeppelin GutterTree StreamingUtilities VieCut tlx)
-target_link_libraries(GraphZeppelin PUBLIC xxhash GutterTree StreamingUtilities VieCut tlx)
-target_include_directories(GraphZeppelin PUBLIC include/)
-target_compile_options(GraphZeppelin PUBLIC -fopenmp)
-target_link_options(GraphZeppelin PUBLIC -fopenmp)
-target_compile_definitions(GraphZeppelin PUBLIC XXH_INLINE_ALL)
+add_dependencies(GPUSketch GutterTree StreamingUtilities VieCut tlx)
+target_link_libraries(GPUSketch PUBLIC xxhash GutterTree StreamingUtilities VieCut tlx)
+target_include_directories(GPUSketch PUBLIC include/)
+target_compile_options(GPUSketch PUBLIC -fopenmp)
+target_link_options(GPUSketch PUBLIC -fopenmp)
+target_compile_definitions(GPUSketch PUBLIC XXH_INLINE_ALL)
 
-add_library(GraphZeppelinVerifyCC
+add_library(GPUSketchVerifyCC
   src/cc_sketch_alg.cpp
   src/edge_store.cpp
   src/return_types.cpp
@@ -151,12 +151,12 @@ add_library(GraphZeppelinVerifyCC
   src/sketch.cpp
   src/util.cpp
   test/util/graph_verifier.cpp)
-add_dependencies(GraphZeppelinVerifyCC GutterTree StreamingUtilities VieCut)
-target_link_libraries(GraphZeppelinVerifyCC PUBLIC xxhash GutterTree StreamingUtilities VieCut)
-target_include_directories(GraphZeppelinVerifyCC PUBLIC include/ include/test/)
-target_compile_options(GraphZeppelinVerifyCC PUBLIC -fopenmp)
-target_link_options(GraphZeppelinVerifyCC PUBLIC -fopenmp)
-target_compile_definitions(GraphZeppelinVerifyCC PUBLIC XXH_INLINE_ALL VERIFY_SAMPLES_F)
+add_dependencies(GPUSketchVerifyCC GutterTree StreamingUtilities VieCut)
+target_link_libraries(GPUSketchVerifyCC PUBLIC xxhash GutterTree StreamingUtilities VieCut)
+target_include_directories(GPUSketchVerifyCC PUBLIC include/ include/test/)
+target_compile_options(GPUSketchVerifyCC PUBLIC -fopenmp)
+target_link_options(GPUSketchVerifyCC PUBLIC -fopenmp)
+target_compile_definitions(GPUSketchVerifyCC PUBLIC XXH_INLINE_ALL VERIFY_SAMPLES_F)
 
 if (BUILD_EXE)
   add_executable(tests
@@ -167,129 +167,129 @@ if (BUILD_EXE)
     test/dsu_test.cpp
     test/util_test.cpp
     test/util/graph_verifier_test.cpp)
-  add_dependencies(tests GraphZeppelinVerifyCC)
-  target_link_libraries(tests PRIVATE GraphZeppelinVerifyCC)
+  add_dependencies(tests GPUSketchVerifyCC)
+  target_link_libraries(tests PRIVATE GPUSketchVerifyCC)
 
   add_executable(statistical_sketch_test
     tools/sketch_testing.cpp)
-  add_dependencies(statistical_sketch_test GraphZeppelinVerifyCC)
-  target_link_libraries(statistical_sketch_test PRIVATE GraphZeppelinVerifyCC)
+  add_dependencies(statistical_sketch_test GPUSketchVerifyCC)
+  target_link_libraries(statistical_sketch_test PRIVATE GPUSketchVerifyCC)
  
 
   # executable for processing a binary graph stream
   add_executable(process_stream
     tools/process_stream.cpp)
-  target_link_libraries(process_stream PRIVATE GraphZeppelin)
+  target_link_libraries(process_stream PRIVATE GPUSketch)
 
   # executable for performing in depth correctness testing
   add_executable(test_correctness
     tools/test_correctness.cpp)
-  target_link_libraries(test_correctness PRIVATE GraphZeppelinVerifyCC)
+  target_link_libraries(test_correctness PRIVATE GPUSketchVerifyCC)
 
   # executable for processing a binary graph stream for CUDA
   add_executable(cuda_process_stream
     tools/cuda_process_stream.cu)
-  target_link_libraries(cuda_process_stream PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(cuda_process_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(single_kernel_stream
     tools/single_kernel_stream.cu)
-  target_link_libraries(single_kernel_stream PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(single_kernel_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(xxhash_test
     test/xxhash_test.cu)
-  target_link_libraries(xxhash_test PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(xxhash_test PRIVATE GPUSketch CUDALibrary)
 
   add_executable(gpu_sketch_throughput
     test/gpu_sketch_throughput.cu)
-  target_link_libraries(gpu_sketch_throughput PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(gpu_sketch_throughput PRIVATE GPUSketch CUDALibrary)
 
   add_executable(gpu_sketch_throughput_density
     test/gpu_sketch_throughput_density.cu)
-  target_link_libraries(gpu_sketch_throughput_density PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(gpu_sketch_throughput_density PRIVATE GPUSketch CUDALibrary)
   
   add_executable(gpu_sketch_throughput_stream
     test/gpu_sketch_throughput_stream.cu)
-  target_link_libraries(gpu_sketch_throughput_stream PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(gpu_sketch_throughput_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(cpu_sketch_throughput
     test/cpu_sketch_throughput.cpp)
-  target_link_libraries(cpu_sketch_throughput PRIVATE GraphZeppelin)
+  target_link_libraries(cpu_sketch_throughput PRIVATE GPUSketch)
 
   add_executable(cpu_sketch_throughput_density
     test/cpu_sketch_throughput_density.cpp)
-  target_link_libraries(cpu_sketch_throughput_density PRIVATE GraphZeppelin)
+  target_link_libraries(cpu_sketch_throughput_density PRIVATE GPUSketch)
 
   add_executable(cpu_sketch_throughput_stream
     test/cpu_sketch_throughput_stream.cpp)
-  target_link_libraries(cpu_sketch_throughput_stream PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(cpu_sketch_throughput_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(cpu_gpu_transfer
     test/cpu_gpu_transfer.cu)
-  target_link_libraries(cpu_gpu_transfer PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(cpu_gpu_transfer PRIVATE GPUSketch CUDALibrary)
 
   add_executable(min_cut
     tools/min_cut.cu)
-  target_link_libraries(min_cut PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(min_cut PRIVATE GPUSketch CUDALibrary)
 
    add_executable(mc_standalone
     tools/mc_standalone.cu)
-  target_link_libraries(mc_standalone PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(mc_standalone PRIVATE GPUSketch CUDALibrary)
 
   add_executable(adjlist_test
     tools/adjlist_test.cpp)
-  target_link_libraries(adjlist_test PRIVATE GraphZeppelin CUDALibrary)
+  target_link_libraries(adjlist_test PRIVATE GPUSketch CUDALibrary)
 
   add_executable(generate_stream
     tools/stream_generators/non_trivial_stream_generator.cpp
   )
-  target_link_libraries(generate_stream PRIVATE GraphZeppelin)
+  target_link_libraries(generate_stream PRIVATE GPUSketch)
 
   add_executable(csv_converter
     tools/converter/csv_converter.cpp
   )
-  target_link_libraries(csv_converter PRIVATE GraphZeppelin)
+  target_link_libraries(csv_converter PRIVATE GPUSketch)
 
   add_executable(metis_converter
     tools/converter/metis_converter.cpp
   )
-  target_link_libraries(metis_converter PRIVATE GraphZeppelin)
+  target_link_libraries(metis_converter PRIVATE GPUSketch)
 
   add_executable(edgelist_converter
     tools/converter/edgelist_converter.cpp
   )
-  target_link_libraries(edgelist_converter PRIVATE GraphZeppelin)
+  target_link_libraries(edgelist_converter PRIVATE GPUSketch)
 
   add_executable(stream_converter
     tools/converter/stream_converter.cpp
   )
-  target_link_libraries(stream_converter PRIVATE GraphZeppelin)
+  target_link_libraries(stream_converter PRIVATE GPUSketch)
 
   add_executable(convert_bipartite_graph
     tools/converter/convert_bipartite_graph.cpp
   )
-  target_link_libraries(convert_bipartite_graph PRIVATE GraphZeppelin)
+  target_link_libraries(convert_bipartite_graph PRIVATE GPUSketch)
 
   add_executable(stream_shuffler
     tools/others/stream_shuffler.cpp
   )
-  target_link_libraries(stream_shuffler PRIVATE GraphZeppelin)
+  target_link_libraries(stream_shuffler PRIVATE GPUSketch)
 
   add_executable(mincut_estimator
     tools/others/mincut_estimator.cpp
   )
-  target_link_libraries(mincut_estimator PRIVATE GraphZeppelin)
+  target_link_libraries(mincut_estimator PRIVATE GPUSketch)
 
   add_executable(mincut_count
     tools/others/mincut_count.cpp
   )
-  target_link_libraries(mincut_count PRIVATE GraphZeppelin)
+  target_link_libraries(mincut_count PRIVATE GPUSketch)
   
 endif()
 
 if (BUILD_BENCH)
   add_executable(bench_cc
     tools/benchmark/graphcc_bench.cpp)
-  add_dependencies(bench_cc GraphZeppelin benchmark)
-  target_link_libraries(bench_cc GraphZeppelin benchmark::benchmark xxhash)
+  add_dependencies(bench_cc GPUSketch benchmark)
+  target_link_libraries(bench_cc GPUSketch benchmark::benchmark xxhash)
 endif()
 

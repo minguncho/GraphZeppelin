@@ -33,11 +33,6 @@ else()
   message(STATUS "${CMAKE_CXX_COMPILER_ID} not recognized, no flags added")
 endif()
 
-#add_compile_options(-fsanitize=address)
-#add_link_options(-fsanitize=address)
-#add_compile_options(-fsanitize=undefined)
-#add_link_options(-fsanitize=undefined)
-
 # Check if this project is the top directory or build type is Debug
 # If so, build executables, otherwise, only build libraries
 get_directory_property(not_root PARENT_DIRECTORY)
@@ -113,6 +108,9 @@ FetchContent_MakeAvailable(GutterTree StreamingUtilities VieCut tlx)
 # Example:
 # cmake -DCMAKE_CXX_FLAGS="-DL0_SAMPLING" ..
 
+# Turning off eager DSU for GPUSKetch by default
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_EAGER_DSU")
+
 add_library(CUDALibrary
   src/cuda_library.cu
   src/cuda_kernel.cu
@@ -124,7 +122,6 @@ add_dependencies(CUDALibrary GutterTree StreamingUtilities VieCut tlx)
 target_link_libraries(CUDALibrary PUBLIC xxhash GutterTree StreamingUtilities VieCut tlx)
 target_include_directories(CUDALibrary PUBLIC include/)
 target_compile_options(CUDALibrary PUBLIC -lineinfo) # -lineinfo: For profiling
-#target_compile_options(CUDALibrary PUBLIC -expt-relaxed-constexpr)
 
 add_library(GPUSketch
   src/cc_sketch_alg.cpp

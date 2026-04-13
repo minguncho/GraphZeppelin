@@ -10,9 +10,6 @@
 // Same list of subreddits as Reddit Corpus (small)
 // https://convokit.cornell.edu/documentation/subreddit.html
 
-// ./convokit_parser ~/.convokit/saved-corpora/ ~/GraphZeppelin/datasets/reddit/others/subreddits_small_sample.txt ~/GraphZeppelin/CUDA/GraphZeppelin/bipartite_datasets/
-// ./convokit_parser ~/.convokit/saved-corpora/ ~/GraphZeppelin/datasets/reddit/others/subreddits_small_sample_200k.txt ~/GraphZeppelin/CUDA/GraphZeppelin/bipartite_datasets/
-
 struct SubredditData {
   std::unordered_map<std::string, int> user_ids;
   std::vector<std::string> conv_data;

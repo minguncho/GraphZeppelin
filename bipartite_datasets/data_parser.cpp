@@ -13,7 +13,7 @@
 
 // User IDs to exclude while parsing
 std::unordered_set<std::string> filtered_userids = {
-  //"[deleted]", "AutoModerator"
+  "[deleted]", "AutoModerator"
 };
 
 struct SubredditData {

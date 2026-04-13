@@ -11,8 +11,6 @@
 // Same list of subreddits as Reddit Corpus (small)
 // https://convokit.cornell.edu/documentation/subreddit.html
 
-// ./convokit_upperbound ~/.convokit/saved-corpora/ ~/GraphZeppelin/datasets/reddit/others/subreddits_small_sample.txt
-
 struct SubredditData {
   std::string subreddit_id;
   std::vector<std::string> user_ids;

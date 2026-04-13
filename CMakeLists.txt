@@ -163,7 +163,8 @@ if (BUILD_EXE)
     test/edge_store_test.cpp
     test/dsu_test.cpp
     test/util_test.cpp
-    test/util/graph_verifier_test.cpp)
+    test/util/graph_verifier_test.cpp
+    test/xxhash_test.cu)
   add_dependencies(tests GPUSketchVerifyCC)
   target_link_libraries(tests PRIVATE GPUSketchVerifyCC)
 

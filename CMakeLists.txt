@@ -187,20 +187,20 @@ if (BUILD_EXE)
     tools/cuda_process_stream.cu)
   target_link_libraries(cuda_process_stream PRIVATE GPUSketch CUDALibrary)
 
+  add_executable(min_cut
+    tools/min_cut.cu)
+  target_link_libraries(min_cut PRIVATE GPUSketch CUDALibrary)
+endif()
+
+if (BUILD_TEST_AND_TOOL)
+  add_executable(mc_standalone
+    tools/mc_standalone.cu)
+  target_link_libraries(mc_standalone PRIVATE GPUSketch CUDALibrary)
+
   add_executable(single_kernel_stream
     tools/single_kernel_stream.cu)
   target_link_libraries(single_kernel_stream PRIVATE GPUSketch CUDALibrary)
 
-  add_executable(min_cut
-    tools/min_cut.cu)
-  target_link_libraries(min_cut PRIVATE GPUSketch CUDALibrary)
-
-   add_executable(mc_standalone
-    tools/mc_standalone.cu)
-  target_link_libraries(mc_standalone PRIVATE GPUSketch CUDALibrary)
-endif()
-
-if (BUILD_TEST)
   add_executable(gpu_sketch_throughput
     test/gpu_sketch_throughput.cu)
   target_link_libraries(gpu_sketch_throughput PRIVATE GPUSketch CUDALibrary)
@@ -232,9 +232,7 @@ if (BUILD_TEST)
   add_executable(adjlist_test
     tools/adjlist_test.cpp)
   target_link_libraries(adjlist_test PRIVATE GPUSketch CUDALibrary)
-endif()
 
-if (BUILD_TOOL)
   add_executable(generate_stream
     tools/stream_generators/non_trivial_stream_generator.cpp)
   target_link_libraries(generate_stream PRIVATE GPUSketch)

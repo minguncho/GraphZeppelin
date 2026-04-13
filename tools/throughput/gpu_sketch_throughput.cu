@@ -3,7 +3,7 @@
 #include <vector>
 
 #include <sketch.h>
-#include "../src/cuda_kernel.cu"
+#include "../../src/cuda_kernel.cu"
 
 static size_t get_seed() {
   auto now = std::chrono::high_resolution_clock::now();

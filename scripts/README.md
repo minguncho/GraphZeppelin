@@ -1,6 +1,8 @@
 # GPUSketch Benchmark Scripts
 
-Note: To ensure the best performance for the GPU, make sure to maximize its clock speed by `nvidia-smi -lgc [CLOCK_SPEED]`.
+Note: 
+- To ensure the best performance for the GPU, make sure to maximize its clock speed by `nvidia-smi -lgc [CLOCK_SPEED]`.
+- Make sure that all the exectuables for tests and tools are getting built, with `cmake -DBUILD_TEST_AND_TOOL=ON ..`.
 
 ### Datasets
 | Dataset | # of Nodes | # of Edges | # Stream Updates |
@@ -24,6 +26,8 @@ For evaluating the connected components problem, we only use the kron and the re
 For evaluating the minimum cut problem, we use all of the above graphs. Note that we use a modified version of the kron graphs, customized by the addition of edge insertions to control the number of minimum cuts, to evaluate the approximation of the minimum cut values. 
 
 ### Benchmark List
-- `connected_components.sh`: Connected Components Benchmark on CPU-GPU system.
-- `minimum_cut.sh`: Minimum Cut Benchmark on CPU-GPU system with hybrid data structure.
-- `minimum_cut_no_es.sh`: Minimum Cut Benchmark on CPU-GPU system with original [Ahn et al.](https://dl.acm.org/doi/10.1145/2213556.2213560) algorithm.
+- `connected_components.sh`: Connected Components performance benchmark on CPU-GPU system.
+- `minimum_cut.sh`: Minimum Cut performance benchmark on CPU-GPU system with hybrid data structure.
+- `minimum_cut_no_es.sh`: Minimum Cut performance benchmark on CPU-GPU system with original [Ahn et al.](https://dl.acm.org/doi/10.1145/2213556.2213560) algorithm.
+- `minimum_cut_approx.sh`: Minimum Cut approximation benchmark with different values of `epsilon` on `kron_17` and `ktree_17` graphs.
+- `sys_sketch_throughput.sh`: Sketch update throughput benchmark on CPU and GPU. 

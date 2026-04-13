@@ -1,9 +1,11 @@
+#include <fstream>
+#include <iomanip>
 #include <chrono>
 #include <cmath>
 #include <vector>
 
 #include <sketch.h>
-#include "../src/cuda_kernel.cu"
+#include "../../src/cuda_kernel.cu"
 
 static size_t get_seed() {
   auto now = std::chrono::high_resolution_clock::now();
@@ -185,6 +187,13 @@ int main(int argc, char **argv) {
 
     std::cout << "CUDA Event - Kernel Execution Time (s):           " << time * 0.001 << std::endl;
     std::cout << "CUDA Event - Rate (# of Edges / s):               " << ((num_updates_per_block * num_device_blocks) / 2) / (time * 0.001) << std::endl;
+
+    std::ofstream out("runtime_results.csv", std::ios_base::out | std::ios_base::app);
+    out << std::fixed;
+    out << std::setprecision(3);
+    out << num_nodes << ", GPU, N/A, "
+        << stream_update / 1e6 << ", " 
+        << stream_update / (time * 0.001) / 1e6 << std::endl; 
   } 
 
   cudaFree(d_buckets);

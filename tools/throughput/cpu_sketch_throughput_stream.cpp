@@ -1,3 +1,5 @@
+#include <fstream>
+#include <iomanip>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -129,6 +131,13 @@ int main(int argc, char **argv) {
     std::chrono::duration<double> sketch_update_duration = std::chrono::steady_clock::now() - sketch_update_start;
     std::cout << "Total insertion time(sec):    " << sketch_update_duration.count() << std::endl;
     std::cout << "Updates per second:           " << ((num_updates_per_batch * num_batches) / 2) / sketch_update_duration.count() << std::endl;
+
+    std::ofstream out("runtime_results.csv", std::ios_base::out | std::ios_base::app);
+    out << std::fixed;
+    out << std::setprecision(3);
+    out << num_nodes << ", CPU, " << num_threads << ", " 
+        << stream_update / 1e6 << ", " 
+        << stream_update / sketch_update_duration.count() / 1e6 << std::endl; 
 
   }
   

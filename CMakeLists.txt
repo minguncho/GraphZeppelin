@@ -226,7 +226,7 @@ if (BUILD_TEST_AND_TOOL)
   target_link_libraries(cpu_sketch_throughput_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(cpu_gpu_transfer
-    test/cpu_gpu_transfer.cu)
+    tools/cpu_gpu_transfer.cu)
   target_link_libraries(cpu_gpu_transfer PRIVATE GPUSketch CUDALibrary)
 
   add_executable(adjlist_test

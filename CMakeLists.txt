@@ -202,27 +202,27 @@ if (BUILD_TEST_AND_TOOL)
   target_link_libraries(single_kernel_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(gpu_sketch_throughput
-    test/gpu_sketch_throughput.cu)
+    tools/throughput/gpu_sketch_throughput.cu)
   target_link_libraries(gpu_sketch_throughput PRIVATE GPUSketch CUDALibrary)
 
   add_executable(gpu_sketch_throughput_density
-    test/gpu_sketch_throughput_density.cu)
+    tools/throughput/gpu_sketch_throughput_density.cu)
   target_link_libraries(gpu_sketch_throughput_density PRIVATE GPUSketch CUDALibrary)
   
   add_executable(gpu_sketch_throughput_stream
-    test/gpu_sketch_throughput_stream.cu)
+    tools/throughput/gpu_sketch_throughput_stream.cu)
   target_link_libraries(gpu_sketch_throughput_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(cpu_sketch_throughput
-    test/cpu_sketch_throughput.cpp)
+    tools/throughput/cpu_sketch_throughput.cpp)
   target_link_libraries(cpu_sketch_throughput PRIVATE GPUSketch)
 
   add_executable(cpu_sketch_throughput_density
-    test/cpu_sketch_throughput_density.cpp)
+    tools/throughput/cpu_sketch_throughput_density.cpp)
   target_link_libraries(cpu_sketch_throughput_density PRIVATE GPUSketch)
 
   add_executable(cpu_sketch_throughput_stream
-    test/cpu_sketch_throughput_stream.cpp)
+    tools/throughput/cpu_sketch_throughput_stream.cpp)
   target_link_libraries(cpu_sketch_throughput_stream PRIVATE GPUSketch CUDALibrary)
 
   add_executable(cpu_gpu_transfer

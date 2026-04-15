@@ -5,19 +5,27 @@
 #include <chrono>
 
 // Constructor
-EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs, size_t start_subgraph)
+EdgeStore::EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs, size_t start_subgraph, bool contract_enabled)
     : seed(seed),
       num_vertices(num_vertices),
       num_subgraphs(num_subgraphs),
       adjlist(num_vertices),
       vertex_contracted(num_vertices, true),
       max_edges(sketch_bytes / store_edge_bytes),
-      default_buffer_allocation(max_edges / num_vertices) {
+      default_buffer_allocation(max_edges / num_vertices),
+      contract_enabled(contract_enabled) {
   num_edges = 0;
   adj_mutex = new std::mutex[num_vertices];
 
   cur_subgraph = start_subgraph;
   true_min_subgraph = start_subgraph;
+
+  if (!contract_enabled) {
+    std::cout << "-------------------------------------------\n";
+    std::cout << "WARNING: EdgeStore contraction is disabled!\n";
+    std::cout << "Make sure that this is on purpose!\n";
+    std::cout << "-------------------------------------------\n";
+  }
 
   // reserve some space for each
   for (node_id_t i = 0; i < num_vertices; i++) {
@@ -298,6 +306,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
 
 // checks if we should perform a contraction and begins the process if so
 void EdgeStore::check_if_too_big() {
+  if (!contract_enabled) return;
 
   if (num_edges < max_edges) {
     // no contraction needed

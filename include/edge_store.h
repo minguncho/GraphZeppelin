@@ -43,6 +43,7 @@ class EdgeStore {
   std::vector<std::mutex*> k_spanning_forest_mtxs;
 
   bool mincut_query_init = false;
+  bool contract_enabled;
 
   std::vector<SubgraphTaggedUpdate> vertex_contract(node_id_t src);
   void check_if_too_big();
@@ -56,7 +57,7 @@ class EdgeStore {
  public:
   // Constructor
   EdgeStore(size_t seed, node_id_t num_vertices, size_t sketch_bytes, size_t num_subgraphs,
-            size_t start_subgraph = 0);
+            size_t start_subgraph = 0, bool contract_enabled = true);
   ~EdgeStore();
 
   // functions for adding data to the edge store

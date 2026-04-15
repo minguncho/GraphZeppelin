@@ -158,6 +158,7 @@ target_compile_definitions(GPUSketchVerifyCC PUBLIC XXH_INLINE_ALL VERIFY_SAMPLE
 if (BUILD_EXE)
   add_executable(tests
     test/test_runner.cpp
+    test/cuda_stream_test.cu
     test/cc_alg_test.cpp
     test/sketch_test.cpp
     test/edge_store_test.cpp
@@ -165,8 +166,8 @@ if (BUILD_EXE)
     test/util_test.cpp
     test/util/graph_verifier_test.cpp
     test/xxhash_test.cu)
-  add_dependencies(tests GPUSketchVerifyCC)
-  target_link_libraries(tests PRIVATE GPUSketchVerifyCC)
+  add_dependencies(tests GPUSketchVerifyCC CUDALibrary)
+  target_link_libraries(tests PRIVATE GPUSketchVerifyCC CUDALibrary)
 
   add_executable(statistical_sketch_test
     tools/sketch_testing.cpp)

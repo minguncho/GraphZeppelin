@@ -298,7 +298,7 @@ TaggedUpdateBatch EdgeStore::vertex_advance_subgraph(node_id_t cur_first_es_subg
 
 // checks if we should perform a contraction and begins the process if so
 void EdgeStore::check_if_too_big() {
-  return;
+
   if (num_edges < max_edges) {
     // no contraction needed
     return;

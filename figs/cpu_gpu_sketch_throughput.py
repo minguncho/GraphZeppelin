@@ -43,7 +43,7 @@ cpu_df = df[df['System'] == 'CPU'].copy(deep=False)
 
 # Plot cpu_data
 cpu_chart = alt.Chart(cpu_df).mark_line().encode(
-  x=alt.X('N:Q', axis=alt.Axis(labelAngle=0), title='N (E+06)').scale(type="log", domainMax=5000),
+  x=alt.X('N:Q', axis=alt.Axis(labelAngle=0), title='Stream Length (E+06)').scale(type="log", domainMax=5000),
   y=alt.Y('Rate:Q', title='Rate (# of million edges per second)').scale(type="pow"),
   color=alt.Color('|V|:N').scale(colorScale),
   strokeDash="System"
@@ -54,7 +54,7 @@ gpu_df = df[df['System'] == 'GPU'].copy(deep=False)
 
 # Plot gpu_data
 gpu_chart = alt.Chart(gpu_df).mark_line().encode(
-  x=alt.X('N:Q', axis=alt.Axis(labelAngle=0), title='N (E+06)').scale(type="log", domainMax=5000),
+  x=alt.X('N:Q', axis=alt.Axis(labelAngle=0), title='Stream Length (E+06)').scale(type="log", domainMax=5000),
   y=alt.Y('Rate:Q', title='Rate (# of million edges per second)'),
   color=alt.Color('|V|:N').scale(colorScale),
   strokeDash="System"
@@ -65,7 +65,7 @@ improve_data = gpu_df.copy()
 improve_data['Rate'] = gpu_df['Rate'].values / cpu_df['Rate'].values
 
 improve_chart = alt.Chart(improve_data).mark_line().encode(
-  x=alt.X('N:Q', axis=alt.Axis(labelAngle=0), title='N (E+06)').scale(type="log", domainMax=5000),
+  x=alt.X('N:Q', axis=alt.Axis(labelAngle=0), title='Stream Length (E+06)').scale(type="log", domainMax=5000),
   y=alt.Y('Rate:Q', title='Improvement').axis(values=[0, 10, 20]),
   color=alt.Color('|V|:N').scale(colorScale),
 ).properties(width=200, height=75) 

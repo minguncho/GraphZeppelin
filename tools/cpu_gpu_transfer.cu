@@ -88,10 +88,10 @@ int main(int argc, char **argv) {
   gpuErrchk(cudaEventSynchronize(stop));
   gpuErrchk(cudaEventElapsedTime(&time, start, stop));
 
-  std::cout << "Bytes Transferred (GB):            " << total_bytes / 1000000000 << std::endl;
+  std::cout << "Bytes Transferred (GB):            " << (total_bytes * 2) / 1000000000 << std::endl;
   std::cout << "Data Transfer Time (s):            " << time * 0.001 << std::endl;
   std::cout << "Data Transfer Time (# of Edges/s): " << num_updates / (time * 0.001) << std::endl;
-  std::cout << "Data Transfer Time (GB/s):         " << (total_bytes / 1000000000) / (time * 0.001) << std::endl;
+  std::cout << "Data Transfer Time (GB/s):         " << ((total_bytes * 2) / 1000000000) / (time * 0.001) << std::endl;
 
   // Free Buffers
   cudaFree(d_edgeUpdates);

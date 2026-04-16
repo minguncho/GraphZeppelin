@@ -227,6 +227,22 @@ if (BUILD_TEST_AND_TOOL)
     tools/throughput/cpu_sketch_throughput_stream.cpp)
   target_link_libraries(cpu_sketch_throughput_stream PRIVATE GPUSketch CUDALibrary)
 
+  add_executable(st_cpu_batcher
+    tools/standalone/cpu_batcher.cpp)
+  target_link_libraries(st_cpu_batcher PRIVATE GPUSketch CUDALibrary)
+
+  add_executable(st_cpu_adjlist
+    tools/standalone/cpu_adjlist.cpp)
+  target_link_libraries(st_cpu_adjlist PRIVATE GPUSketch CUDALibrary)
+
+  add_executable(st_gpu_sketch_update
+    tools/standalone/gpu_sketch_update.cu)
+  target_link_libraries(st_gpu_sketch_update PRIVATE GPUSketch CUDALibrary)
+
+  add_executable(st_cpu_gpu_transfer
+    tools/standalone/cpu_gpu_transfer.cu)
+  target_link_libraries(st_cpu_gpu_transfer PRIVATE GPUSketch CUDALibrary)
+
   add_executable(cpu_gpu_transfer
     tools/cpu_gpu_transfer.cu)
   target_link_libraries(cpu_gpu_transfer PRIVATE GPUSketch CUDALibrary)

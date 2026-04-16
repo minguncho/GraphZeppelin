@@ -31,3 +31,5 @@ For evaluating the minimum cut problem, we use all of the above graphs. Note tha
 - `minimum_cut_no_es.sh`: Minimum Cut performance benchmark on CPU-GPU system with original [Ahn et al.](https://dl.acm.org/doi/10.1145/2213556.2213560) algorithm.
 - `minimum_cut_approx.sh`: Minimum Cut approximation benchmark with different values of `epsilon` on `kron_17` and `ktree_17` graphs.
 - `sys_sketch_throughput.sh`: Sketch update throughput benchmark on CPU and GPU. 
+- `sys_standalone_hybrid.sh`: Standalone performance benchmark of each subsystem in GPUSketch on kron graphs for hybrid sketch algorithm.
+- `sys_standalone_nonhybrid.sh`: Standalone performance benchmark of each subsystem in GPUSketch on kron graphs for non-hybrid sketch algorithm.

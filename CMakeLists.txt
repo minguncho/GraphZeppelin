@@ -4,6 +4,8 @@ project(GPUSketch LANGUAGES CXX CUDA)
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 message("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
+include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+
 include (FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -54,7 +56,7 @@ FetchContent_Declare(
   GutterTree
 
   GIT_REPOSITORY  https://github.com/GraphStreamingProject/GutterTree.git
-  GIT_TAG         main
+  GIT_TAG         better_pht
 )
 
 # Get StreamingUtilities

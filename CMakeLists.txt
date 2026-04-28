@@ -195,6 +195,10 @@ if (BUILD_EXE)
 endif()
 
 if (BUILD_TEST_AND_TOOL)
+  add_executable(cuda_process_stream_repeat
+    tools/cuda_process_stream_repeat.cu)
+  target_link_libraries(cuda_process_stream_repeat PRIVATE GPUSketch CUDALibrary)
+
   add_executable(mc_standalone
     tools/mc_standalone.cu)
   target_link_libraries(mc_standalone PRIVATE GPUSketch CUDALibrary)

@@ -27,6 +27,7 @@ For evaluating the minimum cut problem, we use all of the above graphs. Note tha
 
 ### Benchmark List
 - `connected_components.sh`: Connected Components performance benchmark on CPU-GPU system.
+- `connected_components_repeat.sh`: Same as `connected_components.sh`, but the input graph stream is ingested 11 times. Used to evaluate with [Landscape](https://epubs.siam.org/doi/10.1137/1.9781611978339.11).
 - `minimum_cut.sh`: Minimum Cut performance benchmark on CPU-GPU system with hybrid data structure.
 - `minimum_cut_no_es.sh`: Minimum Cut performance benchmark on CPU-GPU system with original [Ahn et al.](https://dl.acm.org/doi/10.1145/2213556.2213560) algorithm.
 - `minimum_cut_approx.sh`: Minimum Cut approximation benchmark with different values of `epsilon` on `kron_17` and `ktree_17` graphs.

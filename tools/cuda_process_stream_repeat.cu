@@ -189,6 +189,6 @@ int main(int argc, char **argv) {
   std::ofstream out("runtime_results.csv", std::ios_base::out | std::ios_base::app);
   out << std::fixed;
   out << std::setprecision(3);
-  out << stream.edges() / num_seconds / 1e6 << ", " << memory << ", " << cc_time.count() 
+  out << (stream.edges() * num_repeat) / num_seconds / 1e6 << ", " << memory << ", " << cc_time.count() 
       << std::endl;
 }

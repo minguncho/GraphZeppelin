@@ -228,6 +228,12 @@ class CCSketchAlg {
   bool point_query(node_id_t a, node_id_t b);
 
   /**
+   * Delete edges found in spanning forest from sketches
+   * Helper function for calc_disjoint_spanning_forests(k)
+   */
+  void filter_sf_edges(SpanningForest &sf);
+
+  /**
    * Return a spanning forest of the graph utilizing Boruvka and L_0 sampling
    * IMPORTANT: The updates to this algorithm MUST NOT be a function of the output of this query
    * that is, unless you really know what you're doing.

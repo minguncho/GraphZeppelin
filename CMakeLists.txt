@@ -259,6 +259,10 @@ if (BUILD_TEST_AND_TOOL)
     tools/stream_generators/non_trivial_stream_generator.cpp)
   target_link_libraries(generate_stream PRIVATE GPUSketch)
 
+  add_executable(spanning_forest_extract
+    tools/spanning_forest_extract.cpp)
+  target_link_libraries(spanning_forest_extract PRIVATE GPUSketch)
+
   add_executable(csv_converter
     tools/converter/csv_converter.cpp)
   target_link_libraries(csv_converter PRIVATE GPUSketch)
